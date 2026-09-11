@@ -64,6 +64,13 @@ export default function OrderDetail({ order }: Props) {
                             <h1 className="text-2xl font-bold text-text-primary">Detail Pesanan</h1>
                         </div>
                         <div className="flex gap-3 items-center">
+                            <a 
+                                href={`/customer/orders/${order.id}/invoice`} 
+                                target="_blank" 
+                                className="px-4 py-2 text-sm font-semibold text-text-primary bg-white border border-border rounded-lg hover:bg-surface transition-colors"
+                            >
+                                Cetak Invoice
+                            </a>
                             {order.order_status === 'pending_confirmation' && (
                                 <button onClick={cancelOrder} className="px-4 py-2 text-sm font-semibold text-error border border-error rounded-lg hover:bg-error-light transition-colors">
                                     Batalkan Pesanan

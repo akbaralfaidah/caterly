@@ -59,7 +59,14 @@ export default function Orders({ orders }: Props) {
                                         </div>
                                         <p className="text-sm text-text-secondary">PIC: {order.customer_snapshot?.name} ({order.customer_snapshot?.phone})</p>
                                     </div>
-                                    <div className="text-right">
+                                    <div className="text-right flex flex-col items-end gap-1">
+                                        <a 
+                                            href={`/merchant/orders/${order.id}/invoice`} 
+                                            target="_blank" 
+                                            className="text-xs font-semibold text-primary hover:underline"
+                                        >
+                                            Cetak Invoice
+                                        </a>
                                         <p className="text-sm font-bold text-text-primary">{order.order_number}</p>
                                         <p className="text-xs text-text-secondary">{formatDateTime(order.created_at)}</p>
                                     </div>
