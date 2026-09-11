@@ -1,170 +1,146 @@
-<?php
-
+﻿<?php
 namespace App\Http\Controllers\Customer;
 
 use App\Http\Controllers\Controller;
 use App\Models\Cart;
 use App\Models\CartItem;
 use App\Models\Menu;
-use Illuminate\Http\Request;
+use App\Models\CustomerAddress;
+use App\Models\MerchantServiceArea;
+use App\Models\MerchantDateCapacity;
+use App\Models\MerchantProfile;
 use Inertia\Inertia;
+use Illuminate\Http\Request;
 
 class CartController extends Controller
 {
     public function show(Request $request)
     {
-        $cart = $this->getCart($request);
+        $cart = Cart::where('customer_id', auth()->id())
+            ->with(['merchant', 'items.menu.category', 'region'])
+            ->first();
 
-        if (!$cart || !$cart->merchant_id) {
-            return Inertia::render('Customer/Cart', ['cart' => null]);
-        }
+        $addresses = CustomerAddress::where('user_id', auth()->id())
+            ->with('region')
+            ->get();
 
-        $cart->load(['items.menu.category', 'merchant.merchantProfile.serviceAreas.region', 'region']);
+        $cartData = null;
+        if ($cart) {
+            $deliveryFee = 0;
+            if ($cart->region_id) {
+                $serviceArea = MerchantServiceArea::where('merchant_id', $cart->merchant_id)
+                    ->where('region_id', $cart->region_id)
+                    ->first();
+                $deliveryFee = $serviceArea ? $serviceArea->delivery_fee : 0;
+            }
 
-        $serviceArea = $cart->merchant?->merchantProfile
-            ?->serviceAreas->where('region_id', $cart->region_id)->first();
+            $merchantProfile = MerchantProfile::where('user_id', $cart->merchant_id)->first();
+            $subtotal = $cart->items->sum(fn($i) => $i->quantity * ($i->menu ? $i->menu->price_idr : 0));
 
-        return Inertia::render('Customer/Cart', [
-            'cart' => [
+            $cartData = [
                 'id' => $cart->id,
                 'merchant_id' => $cart->merchant_id,
-                'merchant_name' => $cart->merchant?->merchantProfile?->company_name,
+                'merchant_name' => $cart->merchant->company_name,
                 'delivery_date' => $cart->delivery_date?->toDateString(),
                 'region_id' => $cart->region_id,
                 'region_name' => $cart->region?->city_name,
-                'delivery_fee' => $serviceArea?->delivery_fee ?? 0,
-                'minimum_portions' => $cart->merchant?->merchantProfile?->minimum_portions ?? 10,
-                'items' => $cart->items->map(fn($item) => [
-                    'id' => $item->id,
-                    'menu_id' => $item->menu_id,
-                    'name' => $item->menu?->name ?? 'Menu tidak tersedia',
-                    'price_idr' => $item->menu?->price_idr ?? 0,
-                    'quantity' => $item->quantity,
-                    'is_active' => $item->menu?->is_active ?? false,
-                    'category' => $item->menu?->category?->name,
-                ]),
+                'delivery_fee' => $deliveryFee,
+                'minimum_portions' => $merchantProfile?->minimum_portions ?? 0,
                 'total_portions' => $cart->items->sum('quantity'),
-                'subtotal' => $cart->items->sum(fn($i) => ($i->menu?->price_idr ?? 0) * $i->quantity),
-            ],
-            'addresses' => auth()->user()->customerAddresses()
-                ->with('region')->orderByDesc('is_default')->get(),
+                'subtotal' => $subtotal,
+                'items' => $cart->items->map(fn($i) => [
+                    'id' => $i->id,
+                    'menu_id' => $i->menu_id,
+                    'name' => $i->menu ? $i->menu->name : 'Menu Dihapus',
+                    'price_idr' => $i->menu ? $i->menu->price_idr : 0,
+                    'quantity' => $i->quantity,
+                    'is_active' => $i->menu ? $i->menu->is_active : false,
+                    'category' => $i->menu?->category?->name,
+                ]),
+            ];
+        }
+
+        return Inertia::render('Customer/Cart', [
+            'cart' => $cartData,
+            'addresses' => $addresses,
         ]);
     }
 
     public function addItem(Request $request)
     {
-        $request->validate([
+        $validated = $request->validate([
             'menu_id' => 'required|exists:menus,id',
-            'quantity' => 'required|integer|min:1|max:10000',
-            'merchant_id' => 'required|exists:users,id',
-            'delivery_date' => 'nullable|date|after:today',
-            'region_id' => 'nullable|exists:regions,id',
-            'replace_cart' => 'nullable|boolean',
+            'quantity' => 'required|integer|min:1',
+            'delivery_date' => 'required|date|after:today',
         ]);
 
-        $menu = Menu::where('id', $request->menu_id)
-            ->where('is_active', true)
-            ->whereNull('deleted_at')
-            ->firstOrFail();
+        $menu = Menu::findOrFail($validated['menu_id']);
+        if (!$menu->is_active) {
+            return back()->with('error', 'Menu ini sedang tidak aktif.');
+        }
 
-        $cart = $this->getCart($request);
+        $cart = Cart::firstOrCreate(
+            ['customer_id' => auth()->id()],
+            ['merchant_id' => $menu->merchant_id, 'delivery_date' => $validated['delivery_date']]
+        );
 
-        // Check if switching merchant
-        if ($cart && $cart->merchant_id && $cart->merchant_id != $request->merchant_id) {
-            if (!$request->boolean('replace_cart')) {
-                return back()->with('error', 'DIFFERENT_MERCHANT');
-            }
-            // Clear cart for new merchant
+        if ($cart->merchant_id !== $menu->merchant_id) {
+            // clear cart if different merchant
             $cart->items()->delete();
             $cart->update([
-                'merchant_id' => $request->merchant_id,
-                'delivery_date' => $request->delivery_date,
-                'region_id' => $request->region_id,
+                'merchant_id' => $menu->merchant_id,
+                'delivery_date' => $validated['delivery_date']
             ]);
+        } else if ($cart->delivery_date?->toDateString() !== $validated['delivery_date']) {
+            $cart->update(['delivery_date' => $validated['delivery_date']]);
         }
 
-        if (!$cart) {
-            $cart = Cart::create([
-                'customer_id' => auth()->id(),
-                'merchant_id' => $request->merchant_id,
-                'delivery_date' => $request->delivery_date,
-                'region_id' => $request->region_id,
-            ]);
-        } else {
-            if (!$cart->merchant_id) {
-                $cart->update([
-                    'merchant_id' => $request->merchant_id,
-                    'delivery_date' => $request->delivery_date,
-                    'region_id' => $request->region_id,
-                ]);
-            }
-            if ($request->delivery_date) {
-                $cart->update(['delivery_date' => $request->delivery_date]);
-            }
-            if ($request->region_id) {
-                $cart->update(['region_id' => $request->region_id]);
-            }
-        }
-
-        // Upsert cart item
-        $cartItem = CartItem::where('cart_id', $cart->id)
-            ->where('menu_id', $request->menu_id)
+        $item = CartItem::where('cart_id', $cart->id)
+            ->where('menu_id', $menu->id)
             ->first();
 
-        if ($cartItem) {
-            $cartItem->update(['quantity' => $cartItem->quantity + $request->quantity]);
+        if ($item) {
+            $item->increment('quantity', $validated['quantity']);
         } else {
             CartItem::create([
                 'cart_id' => $cart->id,
-                'menu_id' => $request->menu_id,
-                'quantity' => $request->quantity,
+                'menu_id' => $menu->id,
+                'quantity' => $validated['quantity'],
             ]);
         }
 
-        return back()->with('success', 'Menu ditambahkan ke keranjang');
+        return back()->with('success', 'Menu ditambahkan ke keranjang.');
     }
 
-    public function updateItem(Request $request, int $itemId)
+    public function updateItem(Request $request, CartItem $item)
     {
-        $request->validate([
-            'quantity' => 'required|integer|min:1|max:10000',
+        if ($item->cart->customer_id !== auth()->id()) abort(403);
+
+        $validated = $request->validate([
+            'quantity' => 'required|integer|min:1',
         ]);
 
-        $item = CartItem::whereHas('cart', fn($q) => $q->where('customer_id', auth()->id()))
-            ->findOrFail($itemId);
+        $item->update(['quantity' => $validated['quantity']]);
 
-        $item->update(['quantity' => $request->quantity]);
-        return back()->with('success', 'Jumlah diperbarui');
+        return back()->with('success', 'Keranjang diperbarui.');
     }
 
-    public function removeItem(int $itemId)
+    public function removeItem(CartItem $item)
     {
-        $item = CartItem::whereHas('cart', fn($q) => $q->where('customer_id', auth()->id()))
-            ->findOrFail($itemId);
-
+        if ($item->cart->customer_id !== auth()->id()) abort(403);
+        
         $item->delete();
-
-        // If cart is empty, clear merchant
-        $cart = Cart::where('customer_id', auth()->id())->first();
-        if ($cart && $cart->items()->count() === 0) {
-            $cart->update(['merchant_id' => null]);
+        
+        if ($item->cart->items()->count() === 0) {
+            $item->cart->delete();
         }
 
-        return back()->with('success', 'Menu dihapus dari keranjang');
+        return back()->with('success', 'Menu dihapus dari keranjang.');
     }
 
-    public function clear()
+    public function clear(Request $request)
     {
-        $cart = Cart::where('customer_id', auth()->id())->first();
-        if ($cart) {
-            $cart->items()->delete();
-            $cart->update(['merchant_id' => null, 'delivery_date' => null, 'region_id' => null]);
-        }
-        return back()->with('success', 'Keranjang dikosongkan');
-    }
-
-    private function getCart(Request $request): ?Cart
-    {
-        return Cart::where('customer_id', auth()->id())->first();
+        Cart::where('customer_id', auth()->id())->delete();
+        return back()->with('success', 'Keranjang dikosongkan.');
     }
 }
