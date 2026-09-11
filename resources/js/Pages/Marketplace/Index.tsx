@@ -13,7 +13,7 @@ interface Merchant {
 }
 
 interface Props extends PageProps {
-    merchants: Merchant[];
+    merchants: { data: Merchant[] };
     regions: Region[];
     filters: {
         region_id: string;
@@ -107,11 +107,11 @@ export default function MarketplaceIndex({ merchants, regions, filters }: Props)
                         <p className="text-text-secondary mt-1">Daftar katering yang sesuai dengan kriteria pencarian Anda.</p>
                     </div>
                     <div className="text-sm font-semibold text-text-secondary bg-surface px-4 py-2 rounded-lg">
-                        {merchants.length} katering ditemukan
+                        {merchants.data.length} katering ditemukan
                     </div>
                 </div>
 
-                {merchants.length === 0 ? (
+                {merchants.data.length === 0 ? (
                     <div className="bg-white border border-border rounded-2xl shadow-sm p-16 text-center">
                         <div className="text-6xl mb-6 grayscale opacity-50">🍱</div>
                         <h3 className="text-xl font-bold text-text-primary mb-2">Tidak ada katering ditemukan</h3>
@@ -119,7 +119,7 @@ export default function MarketplaceIndex({ merchants, regions, filters }: Props)
                     </div>
                 ) : (
                     <div className="grid lg:grid-cols-2 gap-8">
-                        {merchants.map(merchant => (
+                        {merchants.data.map(merchant => (
                             <Link key={merchant.id} href={`/marketplace/${merchant.id}`} className="group block bg-white border border-border rounded-2xl shadow-sm hover:shadow-xl hover:border-primary/30 transition-all overflow-hidden flex flex-col">
                                 <div className="p-6 border-b border-border">
                                     <div className="flex justify-between items-start gap-4 mb-3">
