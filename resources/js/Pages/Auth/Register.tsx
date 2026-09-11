@@ -25,7 +25,7 @@ export default function Register() {
                 <div className="w-full lg:w-1/2 flex items-center justify-center p-6 sm:p-12 bg-white">
                     <div className="w-full max-w-md">
                         <div className="lg:hidden mb-8">
-                            <img src="/img/logo-caterly.webp" alt="Caterly" className="h-10 mx-auto" />
+                            <img src="/img/logo-caterly.svg" alt="Caterly" className="h-10 mx-auto" />
                         </div>
                         <h1 className="text-2xl sm:text-3xl font-bold text-text-primary mb-2">Daftar Akun Baru</h1>
                         <p className="text-text-secondary mb-8 text-[15px]">
@@ -142,7 +142,7 @@ export default function Register() {
                 {/* Right side - branding */}
                 <div className="hidden lg:flex w-1/2 bg-accent items-center justify-center p-12">
                     <div className="max-w-md text-center">
-                        <img src="/img/logo-caterly.webp" alt="Caterly" className="h-12 mx-auto mb-8 brightness-0 invert" />
+                        <img src="/img/logo-caterly.svg" alt="Caterly" className="h-12 mx-auto mb-8 brightness-0 invert" />
                         <h2 className="text-3xl font-bold text-white mb-4">Solusi Katering Korporat</h2>
                         <p className="text-white/80 text-lg leading-relaxed">
                             Platform yang mempertemukan kebutuhan makan siang perusahaan dengan penyedia katering profesional.

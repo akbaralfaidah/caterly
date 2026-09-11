@@ -1,4 +1,4 @@
-import { Link, usePage } from '@inertiajs/react';
+﻿import { Link, usePage } from '@inertiajs/react';
 import { PageProps } from '@/types';
 import { ReactNode } from 'react';
 
@@ -10,7 +10,7 @@ export default function GuestLayout({ children }: { children: ReactNode }) {
             <header className="border-b border-border sticky top-0 bg-white z-50">
                 <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
                     <Link href="/marketplace" className="flex items-center gap-2">
-                        <img src="/img/logo-caterly.webp" alt="Caterly" className="h-8" />
+                        <img src="/img/logo-caterly.svg" alt="Caterly" className="h-8" />
                     </Link>
                     <nav className="flex items-center gap-3 sm:gap-6 text-[15px]">
                         <Link href="/marketplace" className="hidden sm:block text-text-secondary hover:text-text-primary font-medium">

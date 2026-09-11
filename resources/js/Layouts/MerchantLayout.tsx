@@ -1,14 +1,14 @@
-import { Link, usePage } from '@inertiajs/react';
+﻿import { Link, usePage } from '@inertiajs/react';
 import { PageProps } from '@/types';
 import { ReactNode, useState } from 'react';
 
 const navItems = [
-    { label: 'Ringkasan', href: '/merchant/dashboard', icon: '📋' },
-    { label: 'Menu', href: '/merchant/menus', icon: '🍱' },
-    { label: 'Pesanan', href: '/merchant/orders', icon: '📦' },
-    { label: 'Jadwal & Kapasitas', href: '/merchant/capacity', icon: '📅' },
-    { label: 'Invoice', href: '/merchant/invoices', icon: '🧾' },
-    { label: 'Profil Usaha', href: '/merchant/profile', icon: '🏪' },
+    { label: 'Ringkasan', href: '/merchant/dashboard', icon: 'ðŸ“‹' },
+    { label: 'Menu', href: '/merchant/menus', icon: 'ðŸ±' },
+    { label: 'Pesanan', href: '/merchant/orders', icon: 'ðŸ“¦' },
+    { label: 'Jadwal & Kapasitas', href: '/merchant/capacity', icon: 'ðŸ“…' },
+    { label: 'Invoice', href: '/merchant/invoices', icon: 'ðŸ§¾' },
+    { label: 'Profil Usaha', href: '/merchant/profile', icon: 'ðŸª' },
 ];
 
 export default function MerchantLayout({ children, title }: { children: ReactNode; title?: string }) {
@@ -27,7 +27,7 @@ export default function MerchantLayout({ children, title }: { children: ReactNod
                         </svg>
                     </button>
                     <Link href="/merchant/dashboard">
-                        <img src="/img/logo-caterly.webp" alt="Caterly" className="h-7" />
+                        <img src="/img/logo-caterly.svg" alt="Caterly" className="h-7" />
                     </Link>
                     <Link href="/notifications" className="p-2 -mr-2 text-text-secondary hover:text-text-primary">
                         <svg width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
@@ -47,7 +47,7 @@ export default function MerchantLayout({ children, title }: { children: ReactNod
                 <aside className={`fixed lg:sticky top-0 left-0 z-50 lg:z-0 h-screen w-[232px] bg-white border-r border-border flex flex-col transition-transform lg:translate-x-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
                     <div className="p-5 border-b border-border hidden lg:block">
                         <Link href="/merchant/dashboard">
-                            <img src="/img/logo-caterly.webp" alt="Caterly" className="h-8" />
+                            <img src="/img/logo-caterly.svg" alt="Caterly" className="h-8" />
                         </Link>
                     </div>
                     <nav className="flex-1 py-3 px-3 overflow-y-auto">
