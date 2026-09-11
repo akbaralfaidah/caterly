@@ -7,9 +7,9 @@ interface Merchant {
     company_name: string;
     description: string | null;
     minimum_portions: number;
-    menus_count: number;
-    service_areas: { region_id: number; region_name: string; delivery_fee: number }[];
-    sample_menus: { id: number; name: string; price_idr: number; image_path: string | null }[];
+    menu_count: number;
+    service_area: string | null;
+    menus_preview: { id: number; name: string; price_idr: number; image_path: string | null }[];
 }
 
 interface Props extends PageProps {
@@ -131,14 +131,9 @@ export default function MarketplaceIndex({ merchants, regions, filters }: Props)
                                     <p className="text-sm text-text-secondary line-clamp-2 leading-relaxed h-10 mb-4">{merchant.description}</p>
                                     
                                     <div className="flex flex-wrap gap-2">
-                                        {merchant.service_areas.slice(0, 3).map(area => (
-                                            <span key={area.region_id} className="text-xs font-semibold text-text-secondary bg-surface px-2.5 py-1 rounded-md border border-border">
-                                                📍 {area.region_name}
-                                            </span>
-                                        ))}
-                                        {merchant.service_areas.length > 3 && (
+                                        {merchant.service_area && (
                                             <span className="text-xs font-semibold text-text-secondary bg-surface px-2.5 py-1 rounded-md border border-border">
-                                                +{merchant.service_areas.length - 3} lainnya
+                                                📍 {merchant.service_area}
                                             </span>
                                         )}
                                     </div>
@@ -146,9 +141,9 @@ export default function MarketplaceIndex({ merchants, regions, filters }: Props)
                                 
                                 <div className="p-6 bg-surface/30 flex-1 flex flex-col">
                                     <p className="text-xs font-bold text-text-secondary uppercase tracking-wider mb-4">Sample Menu</p>
-                                    {merchant.sample_menus.length > 0 ? (
+                                    {merchant.menus_preview.length > 0 ? (
                                         <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-6">
-                                            {merchant.sample_menus.map(menu => (
+                                            {merchant.menus_preview.map(menu => (
                                                 <div key={menu.id} className="text-center group-hover:transform group-hover:scale-[1.02] transition-transform">
                                                     <div className="aspect-square bg-white border border-border rounded-xl mb-2 flex items-center justify-center overflow-hidden shadow-sm">
                                                         {menu.image_path ? (
@@ -168,7 +163,7 @@ export default function MarketplaceIndex({ merchants, regions, filters }: Props)
                                     
                                     <div className="mt-auto pt-4 border-t border-border flex justify-between items-center">
                                         <span className="text-sm font-semibold text-text-secondary">
-                                            {merchant.menus_count} total pilihan menu
+                                            {merchant.menu_count} total pilihan menu
                                         </span>
                                         <span className="text-sm font-bold text-primary group-hover:underline">
                                             Lihat Detail &rarr;
@@ -183,3 +178,4 @@ export default function MarketplaceIndex({ merchants, regions, filters }: Props)
         </GuestLayout>
     );
 }
+
