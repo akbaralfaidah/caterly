@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 /**
  * Caterly Routes & Frontend Files Generator
  */

@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 /**
  * Caterly Controllers & Seeder Generator
  */

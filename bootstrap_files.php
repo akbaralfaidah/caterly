@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 /**
  * Caterly Project Bootstrapper
  * Generates all core application files for the Caterly B2B Catering Marketplace.

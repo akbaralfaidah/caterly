@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 $files = [];
 
 // ===== Merchant Dashboard Page =====
