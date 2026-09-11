@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\RegisterController;
@@ -58,7 +58,7 @@ Route::middleware(['auth'])->prefix('customer')->name('customer.')->group(functi
 
     // Invoices
     Route::get('/invoices', [CustomerInvoiceController::class, 'index'])->name('invoices.index');
-    Route::get('/invoices/{invoice}', [CustomerInvoiceController::class, 'show'])->name('invoices.show');
+    Route::get('/orders/{order}/invoice', [CustomerInvoiceController::class, 'show'])->name('orders.invoice');
     Route::get('/invoices/{invoice}/print', [CustomerInvoiceController::class, 'print'])->name('invoices.print');
 
     // Profile
@@ -113,7 +113,7 @@ Route::middleware(['auth'])->prefix('merchant')->name('merchant.')->group(functi
 
     // Invoice
     Route::get('/invoices', [MerchantInvoiceController::class, 'index'])->name('invoices.index');
-    Route::get('/invoices/{invoice}', [MerchantInvoiceController::class, 'show'])->name('invoices.show');
+    Route::get('/orders/{order}/invoice', [MerchantInvoiceController::class, 'show'])->name('orders.invoice');
     Route::get('/invoices/{invoice}/print', [MerchantInvoiceController::class, 'print'])->name('invoices.print');
 
     // Production
