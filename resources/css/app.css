@@ -1,0 +1,54 @@
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap');
+@import "tailwindcss";
+
+@theme {
+    --color-primary: #016039;
+    --color-primary-dark: #004d2e;
+    --color-primary-light: #EDF5F0;
+    --color-accent: #F48317;
+    --color-accent-light: #FFF3E6;
+    --color-accent-dark: #B35600;
+    --color-surface: #F6F8F7;
+    --color-border: #E4E9E6;
+    --color-text-primary: #11171E;
+    --color-text-secondary: #55635B;
+    --color-error: #BA1A1A;
+    --color-error-light: #FFDAD6;
+    --color-info: #0B5CAB;
+    --color-info-light: #EBF3FB;
+    --font-family-sans: 'Manrope', ui-sans-serif, system-ui, sans-serif;
+    --radius-sm: 6px;
+    --radius-md: 8px;
+    --radius-lg: 12px;
+    --radius-xl: 16px;
+}
+
+/* Base styles */
+html {
+    font-family: var(--font-family-sans);
+    color: var(--color-text-primary);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+    background-color: #FFFFFF;
+    font-size: 15px;
+    line-height: 1.55;
+}
+
+/* Print styles for invoice */
+@media print {
+    .no-print {
+        display: none !important;
+    }
+    body {
+        background: white;
+        font-size: 12pt;
+    }
+}
+
+/* Tabular numbers for prices */
+.tabular-nums {
+    font-variant-numeric: tabular-nums;
+}
