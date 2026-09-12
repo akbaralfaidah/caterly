@@ -1,4 +1,5 @@
-﻿import { Head, Link, router } from '@inertiajs/react';
+import { Head, Link, router, usePage } from '@inertiajs/react';
+import toast from 'react-hot-toast';
 import GuestLayout from '@/Layouts/GuestLayout';
 import { PageProps, CartData, Address, formatRupiah, formatDateTime } from '@/types';
 

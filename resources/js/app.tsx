@@ -1,8 +1,14 @@
 import '../css/app.css';
-import { createInertiaApp } from '@inertiajs/react';
-import { Toaster } from 'react-hot-toast';
+import { createInertiaApp, router } from '@inertiajs/react';
+import toast, { Toaster } from 'react-hot-toast';
 import { createRoot } from 'react-dom/client';
 import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
+
+router.on('success', (event) => {
+    const flash = (event.detail.page.props as any).flash;
+    if (flash?.success) toast.success(flash.success);
+    if (flash?.error) toast.error(flash.error);
+});
 
 createInertiaApp({
     title: (title) => title ? `${title} — Caterly` : 'Caterly',
