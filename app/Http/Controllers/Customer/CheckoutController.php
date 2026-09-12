@@ -128,6 +128,7 @@ class CheckoutController extends Controller
                     'merchant_id' => $cart->merchant_id,
                     'idempotency_key' => $idempotencyKey,
                     'request_fingerprint' => $fingerprint,
+                    'region_id' => $address->region_id,
                     'delivery_date' => $cart->delivery_date,
                     'delivery_slot' => 'lunch', // Default lunch
                     'order_status' => 'pending_confirmation',
