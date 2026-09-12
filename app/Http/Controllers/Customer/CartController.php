@@ -20,7 +20,7 @@ class CartController extends Controller
             ->with(['merchant', 'items.menu.category', 'region'])
             ->first();
 
-        $addresses = CustomerAddress::where('user_id', auth()->id())
+        $addresses = CustomerAddress::where('customer_id', auth()->id())
             ->with('region')
             ->get();
 

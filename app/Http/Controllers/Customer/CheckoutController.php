@@ -30,7 +30,7 @@ class CheckoutController extends Controller
         }
 
         // Get default address
-        $address = CustomerAddress::where('user_id', $customerId)
+        $address = CustomerAddress::where('customer_id', $customerId)
             ->where('is_default', true)
             ->with('region')
             ->first();

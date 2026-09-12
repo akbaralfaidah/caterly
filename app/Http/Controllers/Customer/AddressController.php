@@ -18,9 +18,9 @@ class AddressController extends Controller
             'notes' => 'nullable|string',
         ]);
 
-        $validated['user_id'] = auth()->id();
+        $validated['customer_id'] = auth()->id();
         
-        $isFirst = CustomerAddress::where('user_id', auth()->id())->count() === 0;
+        $isFirst = CustomerAddress::where('customer_id', auth()->id())->count() === 0;
         $validated['is_default'] = $isFirst;
 
         CustomerAddress::create($validated);
@@ -30,7 +30,7 @@ class AddressController extends Controller
 
     public function update(Request $request, CustomerAddress $address)
     {
-        if ($address->user_id !== auth()->id()) abort(403);
+        if ($address->customer_id !== auth()->id()) abort(403);
 
         $validated = $request->validate([
             'label' => 'required|string|max:100',
@@ -48,13 +48,13 @@ class AddressController extends Controller
 
     public function destroy(CustomerAddress $address)
     {
-        if ($address->user_id !== auth()->id()) abort(403);
+        if ($address->customer_id !== auth()->id()) abort(403);
         
         $address->delete();
 
         // If it was default and others exist, make the first one default
         if ($address->is_default) {
-            $next = CustomerAddress::where('user_id', auth()->id())->first();
+            $next = CustomerAddress::where('customer_id', auth()->id())->first();
             if ($next) {
                 $next->update(['is_default' => true]);
             }
@@ -65,9 +65,9 @@ class AddressController extends Controller
 
     public function setDefault(CustomerAddress $address)
     {
-        if ($address->user_id !== auth()->id()) abort(403);
+        if ($address->customer_id !== auth()->id()) abort(403);
 
-        CustomerAddress::where('user_id', auth()->id())->update(['is_default' => false]);
+        CustomerAddress::where('customer_id', auth()->id())->update(['is_default' => false]);
         $address->update(['is_default' => true]);
 
         return back()->with('success', 'Alamat utama berhasil diubah.');

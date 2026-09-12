@@ -13,7 +13,7 @@ class ProfileController extends Controller
     public function edit(Request $request)
     {
         $profile = CustomerProfile::where('user_id', auth()->id())->first();
-        $addresses = CustomerAddress::where('user_id', auth()->id())
+        $addresses = CustomerAddress::where('customer_id', auth()->id())
             ->with('region')
             ->orderBy('is_default', 'desc')
             ->get();
