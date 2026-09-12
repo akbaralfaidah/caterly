@@ -1,4 +1,4 @@
-﻿import { Head, Link, useForm } from '@inertiajs/react';
+import { Head, Link, useForm } from '@inertiajs/react';
 import GuestLayout from '@/Layouts/GuestLayout';
 import { PageProps, Region } from '@/types';
 
