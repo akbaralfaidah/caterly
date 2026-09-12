@@ -236,7 +236,7 @@ export default function MerchantDetail({ auth, merchant, menus, cart }: Props) {
                                         <div className="text-lg font-extrabold text-primary">{cart.total_portions} Porsi</div>
                                     </div>
 
-                                    <Link href="/cart" className="w-full block text-center py-3 rounded-xl bg-accent hover:bg-accent-dark text-white font-bold transition-colors shadow-sm">
+                                    <Link href="/customer/cart" className="w-full block text-center py-3 rounded-xl bg-accent hover:bg-accent-dark text-white font-bold transition-colors shadow-sm">
                                         Lanjut ke Pembayaran
                                     </Link>
                                 </>
