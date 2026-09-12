@@ -52,7 +52,7 @@ export default function MerchantDetail({ auth, merchant, menus, cart }: Props) {
             return;
         }
 
-        router.post('/cart/add', {
+        router.post('/customer/cart/add', {
             menu_id: menuId,
             quantity: quantity,
             delivery_date: selectedDate
