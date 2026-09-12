@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 
 namespace App\Http\Controllers;
 
@@ -66,8 +66,7 @@ class MarketplaceController extends Controller
             // Availability check
             $availability = null;
             if ($deliveryDate && $regionId) {
-                $availability = $this->checkAvailability(
-                    $merchant->user_id, $deliveryDate, (int)($portions ?? 0)
+                $availability = $this->checkAvailability($merchant, $deliveryDate, (int)($portions ?? 0)
                 );
             }
 
@@ -179,7 +178,7 @@ class MarketplaceController extends Controller
         ]);
     }
 
-    private function checkAvailability(int $merchantId, string $date, int $portions): array
+    private function checkAvailability(\App\Models\MerchantProfile $merchant, string $date, int $portions): array
     {
         $dateObj = \Carbon\Carbon::parse($date);
         $now = now();
@@ -197,14 +196,14 @@ class MarketplaceController extends Controller
 
         // Check operating day
         $dayOfWeek = $dateObj->dayOfWeek;
-        $opDay = MerchantOperatingDay::where('merchant_id', $merchantId)
+        $opDay = MerchantOperatingDay::where('merchant_id', $merchant->user_id)
             ->where('weekday', $dayOfWeek)->first();
         if ($opDay && !$opDay->is_open) {
             return ['available' => false, 'reason' => 'Katering tidak beroperasi pada hari ini'];
         }
 
         // Check capacity
-        $capacity = MerchantDateCapacity::where('merchant_id', $merchantId)
+        $capacity = MerchantDateCapacity::where('merchant_id', $merchant->user_id)
             ->where('delivery_date', $date)->first();
         if ($capacity) {
             if ($capacity->is_closed) {
@@ -218,7 +217,7 @@ class MarketplaceController extends Controller
         }
 
         // No capacity record yet - use default
-        $profile = MerchantProfile::where('user_id', $merchantId)->first();
+        $profile = $merchant;
         return ['available' => true, 'remaining' => $profile?->default_daily_capacity ?? 100];
     }
 }
