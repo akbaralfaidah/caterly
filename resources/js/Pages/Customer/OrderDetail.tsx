@@ -1,7 +1,7 @@
 ﻿import { Head, Link, router, useForm } from '@inertiajs/react';
 import GuestLayout from '@/Layouts/GuestLayout';
 import { PageProps, OrderData, ORDER_STATUS_LABELS, PAYMENT_STATUS_LABELS, formatRupiah, formatDateTime, formatDate } from '@/types';
-import { FormEvent, useRef, useState } from 'react';
+import { FormEvent, useRef } from 'react';
 
 interface Props extends PageProps {
     order: OrderData;
@@ -9,7 +9,9 @@ interface Props extends PageProps {
 
 export default function OrderDetail({ order }: Props) {
     const fileInputRef = useRef<HTMLInputElement>(null);
-    const [uploading, setUploading] = useState(false);
+    const paymentProofs = order.payment_proofs ?? [];
+    const hasSubmittedProof = paymentProofs.some((proof) => proof.status === 'submitted');
+    const rejectedProofs = paymentProofs.filter((proof) => proof.status === 'rejected');
     
     const { data, setData, post, processing, errors } = useForm({
         proof: null as File | null,
@@ -43,10 +45,8 @@ export default function OrderDetail({ order }: Props) {
 
     const uploadPayment = (e: FormEvent) => {
         e.preventDefault();
-        setUploading(true);
         post(`/customer/orders/${order.id}/payment`, {
             preserveScroll: true,
-            onFinish: () => setUploading(false),
         });
     };
 
@@ -163,33 +163,50 @@ export default function OrderDetail({ order }: Props) {
                                 </span>
                             </div>
                             <div className="p-5">
-                                {order.payment_status === 'unpaid' && (order.order_status === 'pending_confirmation' || order.order_status === 'accepted') ? (
-                                    <form onSubmit={uploadPayment} className="space-y-4">
-                                        <p className="text-sm text-text-secondary">Silakan upload bukti transfer pembayaran pesanan ini.</p>
-                                        
-                                        <div>
-                                            <input 
-                                                type="file" 
-                                                ref={fileInputRef}
-                                                onChange={e => setData('proof', e.target.files?.[0] || null)}
-                                                className="w-full text-sm file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-primary-light file:text-primary hover:file:bg-primary/20"
-                                                accept="image/*"
-                                                required
-                                            />
-                                            {errors.proof && <p className="text-error text-xs mt-1">{errors.proof}</p>}
-                                        </div>
-                                        
-                                        <button 
-                                            type="submit"
-                                            disabled={processing || !data.proof}
-                                            className="w-full py-2 bg-primary text-white text-sm font-semibold rounded-lg hover:bg-primary-dark disabled:opacity-50 transition-colors"
-                                        >
-                                            {processing ? 'Mengupload...' : 'Upload Bukti'}
-                                        </button>
-                                    </form>
+                                {order.payment_status === 'unpaid' && order.order_status === 'accepted' && !hasSubmittedProof ? (
+                                    <div className="space-y-4">
+                                        <form onSubmit={uploadPayment} className="space-y-4">
+                                            <p className="text-sm text-text-secondary">Transfer sesuai total tagihan, lalu unggah bukti JPG, PNG, WebP, atau PDF maksimal 5 MB.</p>
+                                            <div className="rounded-lg bg-surface p-3 text-sm">
+                                                <p className="font-bold">{order.bank_snapshot?.bank_name || 'Bank belum dicantumkan'}</p>
+                                                <p>{order.bank_snapshot?.bank_account_number}</p>
+                                                <p className="text-text-secondary">a.n. {order.bank_snapshot?.bank_account_name}</p>
+                                            </div>
+
+                                            <div>
+                                                <input
+                                                    type="file"
+                                                    ref={fileInputRef}
+                                                    onChange={e => setData('proof', e.target.files?.[0] || null)}
+                                                    className="w-full text-sm file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-primary-light file:text-primary hover:file:bg-primary/20"
+                                                    accept=".jpg,.jpeg,.png,.webp,.pdf,image/jpeg,image/png,image/webp,application/pdf"
+                                                    required
+                                                />
+                                                {errors.proof && <p className="text-error text-xs mt-1">{errors.proof}</p>}
+                                            </div>
+
+                                            <button
+                                                type="submit"
+                                                disabled={processing || !data.proof}
+                                                className="w-full py-2 bg-primary text-white text-sm font-semibold rounded-lg hover:bg-primary-dark disabled:opacity-50 transition-colors"
+                                            >
+                                                {processing ? 'Mengupload...' : 'Upload Bukti'}
+                                            </button>
+                                        </form>
+
+                                        {rejectedProofs.map(proof => (
+                                            <div key={proof.id} className="text-sm p-3 border border-error/30 rounded-lg bg-error-light">
+                                                <p className="font-semibold mb-1">Bukti sebelumnya ditolak</p>
+                                                <p className="text-text-secondary">Upload: {formatDateTime(proof.created_at)}</p>
+                                                {proof.rejection_reason && (
+                                                    <p className="text-error mt-1 text-xs">Alasan: {proof.rejection_reason}</p>
+                                                )}
+                                            </div>
+                                        ))}
+                                    </div>
                                 ) : (
                                     <div className="space-y-3">
-                                        {order.payment_proofs?.map(proof => (
+                                        {paymentProofs.map(proof => (
                                             <div key={proof.id} className="text-sm p-3 border border-border rounded-lg bg-surface">
                                                 <p className="font-semibold mb-1">Upload: {formatDateTime(proof.created_at)}</p>
                                                 <p className="text-text-secondary flex justify-between">
@@ -200,7 +217,7 @@ export default function OrderDetail({ order }: Props) {
                                                 )}
                                             </div>
                                         ))}
-                                        {(!order.payment_proofs || order.payment_proofs.length === 0) && (
+                                        {paymentProofs.length === 0 && (
                                             <p className="text-sm text-text-secondary text-center">Belum ada bukti yang diunggah.</p>
                                         )}
                                     </div>
@@ -216,7 +233,7 @@ export default function OrderDetail({ order }: Props) {
                             <div className="p-5 space-y-4">
                                 <div>
                                     <p className="text-xs font-semibold text-text-secondary mb-0.5">Katering</p>
-                                    <p className="text-sm font-semibold text-text-primary">{order.merchant_snapshot?.name}</p>
+                                    <p className="text-sm font-semibold text-text-primary">{order.merchant_snapshot?.name || order.merchant_snapshot?.company_name}</p>
                                     <p className="text-sm text-text-secondary">{order.merchant_snapshot?.phone}</p>
                                 </div>
                                 <div>

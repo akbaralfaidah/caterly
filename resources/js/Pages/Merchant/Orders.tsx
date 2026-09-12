@@ -21,9 +21,9 @@ export default function Orders({ orders }: Props) {
         }
     };
 
-    const action = (orderId: number, path: string, method: 'post' | 'patch' | 'delete' = 'post', data = {}) => {
+    const action = (orderId: number, path: string, data: Record<string, string> = {}) => {
         if (confirm('Apakah Anda yakin?')) {
-            router[method](`/merchant/orders/${orderId}/${path}`, data, { preserveScroll: true });
+            router.post(`/merchant/orders/${orderId}/${path}`, data, { preserveScroll: true });
         }
     };
 
@@ -69,6 +69,9 @@ export default function Orders({ orders }: Props) {
                                         </a>
                                         <p className="text-sm font-bold text-text-primary">{order.order_number}</p>
                                         <p className="text-xs text-text-secondary">{formatDateTime(order.created_at)}</p>
+                                        <Link href={`/merchant/orders/${order.id}`} className="text-xs font-semibold text-primary hover:underline">
+                                            Lihat detail
+                                        </Link>
                                     </div>
                                 </div>
                                 
@@ -108,7 +111,7 @@ export default function Orders({ orders }: Props) {
                                         </button>
                                         <button onClick={() => {
                                             const reason = prompt('Alasan penolakan?');
-                                            if (reason) action(order.id, 'reject', 'post', { reason });
+                                            if (reason) action(order.id, 'reject', { reason });
                                         }} className="w-full py-2 bg-white text-error border border-error text-sm font-semibold rounded-lg hover:bg-error-light transition-colors">
                                             Tolak Pesanan
                                         </button>
@@ -119,6 +122,15 @@ export default function Orders({ orders }: Props) {
                                     <div className="text-center p-3 bg-accent-light text-accent-dark border border-accent rounded-lg text-sm font-medium">
                                         Menunggu pelanggan melakukan pembayaran.
                                     </div>
+                                )}
+
+                                {order.order_status === 'accepted' && order.payment_status === 'unpaid' && (
+                                    <button onClick={() => {
+                                        const reason = prompt('Alasan pembatalan?');
+                                        if (reason) action(order.id, 'cancel', { reason });
+                                    }} className="w-full py-2 bg-white text-error border border-error text-sm font-semibold rounded-lg hover:bg-error-light transition-colors">
+                                        Batalkan Pesanan
+                                    </button>
                                 )}
                                 
                                 {order.order_status === 'accepted' && order.payment_status === 'paid' && (
@@ -136,13 +148,24 @@ export default function Orders({ orders }: Props) {
                                 {order.payment_status === 'pending_review' && (
                                     <div className="mt-2 pt-4 border-t border-border">
                                         <p className="text-sm font-semibold text-text-primary mb-2 text-center">Review Pembayaran</p>
+                                        {order.payment_proofs?.filter(proof => proof.status === 'submitted').slice(-1).map(proof => (
+                                            <a
+                                                key={proof.id}
+                                                href={`/merchant/payment-proof/${proof.id}`}
+                                                target="_blank"
+                                                rel="noreferrer"
+                                                className="mb-2 block text-center text-xs font-bold text-primary underline"
+                                            >
+                                                Lihat {proof.original_name || 'bukti pembayaran'}
+                                            </a>
+                                        ))}
                                         <div className="flex gap-2">
                                             <button onClick={() => action(order.id, 'payment/approve')} className="flex-1 py-2 bg-primary-light text-primary text-xs font-semibold rounded hover:bg-primary hover:text-white transition-colors">
                                                 Terima Bukti
                                             </button>
                                             <button onClick={() => {
                                                 const reason = prompt('Alasan penolakan?');
-                                                if (reason) action(order.id, 'payment/reject', 'post', { reason });
+                                                if (reason) action(order.id, 'payment/reject', { reason });
                                             }} className="flex-1 py-2 bg-error-light text-error text-xs font-semibold rounded hover:bg-error hover:text-white transition-colors">
                                                 Tolak Bukti
                                             </button>

@@ -1,75 +1,106 @@
 <?php
+
 namespace App\Http\Controllers\Customer;
 
 use App\Http\Controllers\Controller;
 use App\Models\CustomerAddress;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class AddressController extends Controller
 {
-    public function store(Request $request)
+    public function index(): RedirectResponse
     {
-        $validated = $request->validate([
-            'label' => 'required|string|max:100',
-            'receiver' => 'required|string|max:255',
-            'phone' => 'required|string|max:20',
-            'region_id' => 'required|exists:regions,id',
-            'address' => 'required|string',
-            'notes' => 'nullable|string',
-        ]);
+        return redirect()->route('customer.profile');
+    }
 
-        $validated['customer_id'] = auth()->id();
-        
-        $isFirst = CustomerAddress::where('customer_id', auth()->id())->count() === 0;
-        $validated['is_default'] = $isFirst;
+    public function store(Request $request): RedirectResponse
+    {
+        $validated = $this->validateAddress($request);
 
-        CustomerAddress::create($validated);
+        DB::transaction(function () use ($request, $validated): void {
+            $hasAddress = CustomerAddress::query()
+                ->where('customer_id', $request->user()->id)
+                ->lockForUpdate()
+                ->exists();
+
+            CustomerAddress::query()->create([
+                ...$validated,
+                'customer_id' => $request->user()->id,
+                'is_default' => ! $hasAddress,
+            ]);
+        }, 3);
 
         return back()->with('success', 'Alamat berhasil ditambahkan.');
     }
 
-    public function update(Request $request, CustomerAddress $address)
+    public function update(Request $request, CustomerAddress $address): RedirectResponse
     {
-        if ($address->customer_id !== auth()->id()) abort(403);
-
-        $validated = $request->validate([
-            'label' => 'required|string|max:100',
-            'receiver' => 'required|string|max:255',
-            'phone' => 'required|string|max:20',
-            'region_id' => 'required|exists:regions,id',
-            'address' => 'required|string',
-            'notes' => 'nullable|string',
-        ]);
-
-        $address->update($validated);
+        $this->ensureOwner($request, $address);
+        $address->update($this->validateAddress($request));
 
         return back()->with('success', 'Alamat berhasil diperbarui.');
     }
 
-    public function destroy(CustomerAddress $address)
+    public function destroy(Request $request, CustomerAddress $address): RedirectResponse
     {
-        if ($address->customer_id !== auth()->id()) abort(403);
-        
-        $address->delete();
+        $this->ensureOwner($request, $address);
 
-        // If it was default and others exist, make the first one default
-        if ($address->is_default) {
-            $next = CustomerAddress::where('customer_id', auth()->id())->first();
-            if ($next) {
-                $next->update(['is_default' => true]);
+        DB::transaction(function () use ($address, $request): void {
+            $lockedAddress = CustomerAddress::query()->lockForUpdate()->findOrFail($address->id);
+            $wasDefault = $lockedAddress->is_default;
+            $lockedAddress->delete();
+
+            if ($wasDefault) {
+                CustomerAddress::query()
+                    ->where('customer_id', $request->user()->id)
+                    ->orderBy('id')
+                    ->lockForUpdate()
+                    ->first()
+                    ?->update(['is_default' => true]);
             }
-        }
+        }, 3);
 
         return back()->with('success', 'Alamat berhasil dihapus.');
     }
 
-    public function setDefault(CustomerAddress $address)
+    public function setDefault(Request $request, CustomerAddress $address): RedirectResponse
     {
-        if ($address->customer_id !== auth()->id()) abort(403);
+        $this->ensureOwner($request, $address);
 
-        CustomerAddress::where('customer_id', auth()->id())->update(['is_default' => false]);
-        $address->update(['is_default' => true]);
+        DB::transaction(function () use ($address, $request): void {
+            CustomerAddress::query()
+                ->where('customer_id', $request->user()->id)
+                ->lockForUpdate()
+                ->get();
+
+            CustomerAddress::query()
+                ->where('customer_id', $request->user()->id)
+                ->update(['is_default' => false]);
+            $address->update(['is_default' => true]);
+        }, 3);
 
         return back()->with('success', 'Alamat utama berhasil diubah.');
+    }
+
+    /**
+     * @return array{label: string, receiver: string, phone: string, region_id: int|string, address: string, notes?: string|null}
+     */
+    private function validateAddress(Request $request): array
+    {
+        return $request->validate([
+            'label' => ['required', 'string', 'max:100'],
+            'receiver' => ['required', 'string', 'max:255'],
+            'phone' => ['required', 'string', 'max:20'],
+            'region_id' => ['required', 'integer', 'exists:regions,id'],
+            'address' => ['required', 'string', 'max:2000'],
+            'notes' => ['nullable', 'string', 'max:500'],
+        ]);
+    }
+
+    private function ensureOwner(Request $request, CustomerAddress $address): void
+    {
+        abort_unless($address->customer_id === $request->user()->id, 404);
     }
 }

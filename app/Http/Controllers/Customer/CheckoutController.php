@@ -1,189 +1,285 @@
 <?php
+
 namespace App\Http\Controllers\Customer;
 
 use App\Http\Controllers\Controller;
+use App\Models\CapacityReservation;
 use App\Models\Cart;
+use App\Models\CustomerAddress;
+use App\Models\Invoice;
+use App\Models\MerchantDateCapacity;
+use App\Models\MerchantOperatingDay;
+use App\Models\MerchantProfile;
+use App\Models\MerchantServiceArea;
+use App\Models\Notification;
 use App\Models\Order;
 use App\Models\OrderItem;
-use App\Models\CustomerAddress;
-use App\Models\MerchantServiceArea;
-use App\Models\MerchantProfile;
-use App\Models\MerchantDateCapacity;
 use App\Models\OrderStatusEvent;
+use DomainException;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Throwable;
 
 class CheckoutController extends Controller
 {
-    public function store(Request $request)
+    public function store(Request $request): RedirectResponse
     {
-        $customerId = auth()->id();
-        
-        // Find cart
-        $cart = Cart::where('customer_id', $customerId)
-            ->with(['merchant', 'items.menu.category', 'region'])
+        $validated = $request->validate([
+            'address_id' => ['required', 'integer', 'exists:customer_addresses,id'],
+            'notes' => ['nullable', 'string', 'max:500'],
+            'checkout_token' => ['required', 'uuid'],
+        ]);
+
+        $customerId = (int) $request->user()->id;
+        $fingerprint = hash('sha256', $validated['address_id'].'|'.trim((string) ($validated['notes'] ?? '')));
+
+        $existingOrder = Order::query()
+            ->where('customer_id', $customerId)
+            ->where('idempotency_key', $validated['checkout_token'])
             ->first();
 
-        if (!$cart || $cart->items->count() === 0) {
-            return back()->with('error', 'Keranjang Anda kosong.');
+        if ($existingOrder) {
+            if (! hash_equals((string) $existingOrder->request_fingerprint, $fingerprint)) {
+                return back()->with('error', 'Token checkout sudah digunakan untuk permintaan yang berbeda.');
+            }
+
+            return redirect()->route('customer.orders.show', $existingOrder)
+                ->with('success', 'Pesanan sebelumnya berhasil ditemukan.');
         }
-
-        // Get default address
-        $address = CustomerAddress::where('customer_id', $customerId)
-            ->where('is_default', true)
-            ->with('region')
-            ->first();
-
-        if (!$address) {
-            return back()->with('error', 'Silakan atur alamat pengiriman utama di profil Anda.');
-        }
-
-        // Must match service area
-        $serviceArea = MerchantServiceArea::where('merchant_id', $cart->merchant_id)
-            ->where('region_id', $address->region_id)
-            ->first();
-
-        if (!$serviceArea) {
-            return back()->with('error', 'Katering tidak melayani area pengiriman Anda. Silakan ganti alamat atau cari katering lain.');
-        }
-
-        // Check minimum portions
-        $merchantProfile = MerchantProfile::where('user_id', $cart->merchant_id)->first();
-        $totalPortions = $cart->items->sum('quantity');
-        if ($totalPortions < ($merchantProfile->minimum_portions ?? 1)) {
-            return back()->with('error', 'Total pesanan belum memenuhi batas minimum katering.');
-        }
-
-        // Generate Idempotency Key or reuse from session
-        $idempotencyKey = $request->session()->get("checkout_idempotency_{$cart->id}");
-        if (!$idempotencyKey) {
-            $idempotencyKey = (string) Str::uuid();
-            $request->session()->put("checkout_idempotency_{$cart->id}", $idempotencyKey);
-        }
-
-        // Generate Request Fingerprint
-        $fingerprint = hash('sha256', $cart->id . $cart->updated_at->timestamp . $totalPortions);
 
         try {
-            $order = DB::transaction(function () use ($cart, $address, $serviceArea, $idempotencyKey, $fingerprint, $merchantProfile, $totalPortions) {
-                // 1. Check idempotency
-                $existingOrder = Order::where('idempotency_key', $idempotencyKey)
-                    ->where('request_fingerprint', $fingerprint)
+            $order = DB::transaction(function () use ($customerId, $fingerprint, $request, $validated): Order {
+                $cart = Cart::query()
+                    ->where('customer_id', $customerId)
+                    ->lockForUpdate()
                     ->first();
-                if ($existingOrder) {
-                    return $existingOrder; // Return existing if duplicate request
+
+                if (! $cart) {
+                    $completedOrder = Order::query()
+                        ->where('customer_id', $customerId)
+                        ->where('idempotency_key', $validated['checkout_token'])
+                        ->first();
+
+                    if ($completedOrder && hash_equals((string) $completedOrder->request_fingerprint, $fingerprint)) {
+                        return $completedOrder;
+                    }
+
+                    throw new DomainException('Keranjang Anda kosong.');
                 }
 
-                // 2. Lock capacity row
-                $capacity = MerchantDateCapacity::firstOrCreate(
-                    ['merchant_id' => $cart->merchant_id, 'delivery_date' => $cart->delivery_date],
-                    ['reserved_capacity' => 0]
+                $cart->load(['merchant', 'region']);
+                $cart->setRelation(
+                    'items',
+                    $cart->items()->with('menu.category')->lockForUpdate()->get(),
                 );
 
-                // Reload with exclusive lock (pessimistic lock)
-                $lockedCapacity = MerchantDateCapacity::where('id', $capacity->id)->lockForUpdate()->first();
-                
-                if ($lockedCapacity->is_closed) {
-                    throw new \Exception('Tanggal pengiriman telah ditutup oleh katering.');
+                if ($cart->items->isEmpty()) {
+                    throw new DomainException('Keranjang Anda kosong.');
                 }
 
-                $maxCapacity = $merchantProfile->default_daily_capacity ?? 100;
-                $remaining = $maxCapacity - $lockedCapacity->reserved_capacity;
-                if ($totalPortions > $remaining) {
-                    throw new \Exception("Kapasitas katering penuh. Sisa kapasitas: {$remaining} porsi.");
+                $address = CustomerAddress::query()
+                    ->where('customer_id', $customerId)
+                    ->with('region')
+                    ->lockForUpdate()
+                    ->find($validated['address_id']);
+
+                if (! $address) {
+                    throw new DomainException('Alamat pengiriman tidak valid.');
                 }
 
-                // 3. Create Order
-                $subtotal = $cart->items->sum(fn($i) => $i->quantity * $i->menu->price_idr);
-                $deliveryFee = $serviceArea->delivery_fee;
-                $total = $subtotal + $deliveryFee;
+                $merchantProfile = MerchantProfile::query()
+                    ->where('user_id', $cart->merchant_id)
+                    ->first();
 
-                // Snapshots
-                $customerSnapshot = [
-                    'name' => auth()->user()->name,
-                    'email' => auth()->user()->email,
-                    'phone' => auth()->user()->phone,
-                    'company_name' => auth()->user()->company_name,
-                ];
-                $merchantSnapshot = [
-                    'name' => $cart->merchant->company_name,
-                    'phone' => $merchantProfile->phone ?? $cart->merchant->phone,
-                    'address' => $merchantProfile->address ?? '',
-                ];
-                $addressSnapshot = [
-                    'label' => $address->label,
-                    'receiver' => $address->receiver,
-                    'phone' => $address->phone,
-                    'address' => $address->address,
-                    'region' => $address->region->city_name,
-                    'notes' => $address->notes,
-                ];
+                if (! $merchantProfile?->isPublished()) {
+                    throw new DomainException('Katering sedang tidak menerima pesanan.');
+                }
 
-                $orderNumber = 'ORD-' . strtoupper(Str::random(8));
+                $deliveryDate = $cart->delivery_date?->copy()->startOfDay();
+                if (! $deliveryDate || ! $deliveryDate->isAfter(today()) || $deliveryDate->isAfter(today()->addDays(30))) {
+                    throw new DomainException('Tanggal pengiriman harus antara besok dan 30 hari ke depan.');
+                }
 
-                $order = Order::create([
-                    'order_number' => $orderNumber,
-                    'customer_id' => auth()->id(),
+                $cutoff = $deliveryDate->copy()->subDay()->setTime(16, 0);
+                if (now()->greaterThanOrEqualTo($cutoff)) {
+                    throw new DomainException('Batas pemesanan pukul 16.00 WIB pada H-1 telah lewat.');
+                }
+
+                $isOperating = MerchantOperatingDay::query()
+                    ->where('merchant_id', $cart->merchant_id)
+                    ->where('weekday', $deliveryDate->dayOfWeek)
+                    ->where('is_open', true)
+                    ->exists();
+
+                if (! $isOperating) {
+                    throw new DomainException('Katering tidak beroperasi pada tanggal tersebut.');
+                }
+
+                $serviceArea = MerchantServiceArea::query()
+                    ->where('merchant_id', $cart->merchant_id)
+                    ->where('region_id', $address->region_id)
+                    ->first();
+
+                if (! $serviceArea) {
+                    throw new DomainException('Katering tidak melayani area alamat yang dipilih.');
+                }
+
+                $totalPortions = (int) $cart->items->sum('quantity');
+                if ($totalPortions < $merchantProfile->minimum_portions) {
+                    throw new DomainException("Pesanan minimal {$merchantProfile->minimum_portions} porsi.");
+                }
+
+                foreach ($cart->items as $item) {
+                    if (! $item->menu || ! $item->menu->is_active || $item->menu->merchant_id !== $cart->merchant_id) {
+                        throw new DomainException('Salah satu menu sudah tidak tersedia.');
+                    }
+                }
+
+                $capacityRecord = MerchantDateCapacity::query()->firstOrCreate(
+                    [
+                        'merchant_id' => $cart->merchant_id,
+                        'delivery_date' => $deliveryDate,
+                    ],
+                    [
+                        'capacity' => $merchantProfile->default_daily_capacity,
+                        'reserved_portions' => 0,
+                        'is_closed' => false,
+                        'is_override' => false,
+                    ],
+                );
+
+                $capacity = MerchantDateCapacity::query()->lockForUpdate()->findOrFail($capacityRecord->id);
+                if ($capacity->is_closed) {
+                    throw new DomainException('Tanggal pengiriman telah ditutup oleh katering.');
+                }
+
+                if ($totalPortions > $capacity->remainingCapacity()) {
+                    throw new DomainException("Kapasitas tersisa {$capacity->remainingCapacity()} porsi.");
+                }
+
+                $subtotal = (int) $cart->items->sum(
+                    fn ($item): int => $item->quantity * $item->menu->price_idr,
+                );
+                $expiresAt = now()->addHours(2)->min($cutoff);
+
+                $order = Order::query()->create([
+                    'order_number' => $this->uniqueNumber('CTR'),
+                    'customer_id' => $customerId,
                     'merchant_id' => $cart->merchant_id,
-                    'idempotency_key' => $idempotencyKey,
-                    'request_fingerprint' => $fingerprint,
                     'region_id' => $address->region_id,
-                    'delivery_date' => $cart->delivery_date,
-                    'delivery_slot' => 'lunch', // Default lunch
+                    'delivery_date' => $deliveryDate,
+                    'delivery_slot' => '11:00-12:00 WIB',
                     'order_status' => 'pending_confirmation',
                     'payment_status' => 'unpaid',
                     'total_portions' => $totalPortions,
                     'subtotal_idr' => $subtotal,
-                    'delivery_fee_idr' => $deliveryFee,
-                    'total_idr' => $total,
-                    'expires_at' => now()->addHours(2), // Expire if not confirmed/paid in 2 hours
-                    'customer_snapshot' => $customerSnapshot,
-                    'merchant_snapshot' => $merchantSnapshot,
-                    'address_snapshot' => $addressSnapshot,
+                    'delivery_fee_idr' => $serviceArea->delivery_fee,
+                    'total_idr' => $subtotal + $serviceArea->delivery_fee,
+                    'expires_at' => $expiresAt,
+                    'notes' => $validated['notes'] ?? null,
+                    'customer_snapshot' => [
+                        'name' => $request->user()->name,
+                        'email' => $request->user()->email,
+                        'phone' => $request->user()->phone,
+                        'company_name' => $request->user()->company_name,
+                    ],
+                    'merchant_snapshot' => [
+                        'name' => $merchantProfile->company_name,
+                        'company_name' => $merchantProfile->company_name,
+                        'phone' => $merchantProfile->phone,
+                        'address' => $merchantProfile->address,
+                    ],
+                    'address_snapshot' => [
+                        'label' => $address->label,
+                        'receiver' => $address->receiver,
+                        'phone' => $address->phone,
+                        'address' => $address->address,
+                        'region' => $address->region?->city_name,
+                        'notes' => $address->notes,
+                    ],
+                    'bank_snapshot' => [
+                        'bank_name' => $merchantProfile->bank_name,
+                        'bank_account_name' => $merchantProfile->bank_account_name,
+                        'bank_account_number' => $merchantProfile->bank_account_number,
+                    ],
+                    'idempotency_key' => $validated['checkout_token'],
+                    'request_fingerprint' => $fingerprint,
                 ]);
 
-                // 4. Create Order Items
                 foreach ($cart->items as $item) {
-                    if (!$item->menu->is_active) {
-                        throw new \Exception("Menu {$item->menu->name} tidak aktif.");
-                    }
-                    OrderItem::create([
+                    OrderItem::query()->create([
                         'order_id' => $order->id,
                         'menu_id' => $item->menu_id,
                         'menu_name_snapshot' => $item->menu->name,
-                        'category_snapshot' => $item->menu->category->name ?? 'Lainnya',
+                        'category_snapshot' => $item->menu->category?->name,
                         'unit_price_idr' => $item->menu->price_idr,
                         'quantity' => $item->quantity,
                         'line_total_idr' => $item->menu->price_idr * $item->quantity,
                     ]);
                 }
 
-                // 5. Update Capacity
-                $lockedCapacity->increment('reserved_capacity', $totalPortions);
+                $capacity->increment('reserved_portions', $totalPortions);
 
-                // 6. Record Status Event
-                OrderStatusEvent::create([
+                CapacityReservation::query()->create([
                     'order_id' => $order->id,
-                    'to_status' => 'pending_confirmation',
-                    'reason' => 'Pesanan baru dibuat',
+                    'capacity_date_id' => $capacity->id,
+                    'portions' => $totalPortions,
                 ]);
 
-                // 7. Clear Cart
-                $cart->items()->delete();
+                Invoice::query()->create([
+                    'order_id' => $order->id,
+                    'invoice_number' => $this->uniqueNumber('INV'),
+                    'issued_at' => now(),
+                    'status' => 'issued',
+                ]);
+
+                OrderStatusEvent::query()->create([
+                    'order_id' => $order->id,
+                    'from_status' => null,
+                    'to_status' => 'pending_confirmation',
+                    'actor_id' => $customerId,
+                    'reason' => 'Pesanan baru dibuat.',
+                    'event_key' => "order:{$order->id}:status:pending_confirmation",
+                ]);
+
+                Notification::query()->create([
+                    'user_id' => $order->merchant_id,
+                    'type' => 'new_order',
+                    'title' => 'Pesanan baru',
+                    'message' => "Pesanan {$order->order_number} menunggu konfirmasi.",
+                    'resource_type' => 'order',
+                    'resource_id' => $order->id,
+                    'event_key' => "order:{$order->id}:created:merchant",
+                ]);
+
                 $cart->delete();
 
                 return $order;
-            });
+            }, 3);
+        } catch (DomainException $exception) {
+            return back()->with('error', $exception->getMessage());
+        } catch (Throwable $exception) {
+            report($exception);
 
-            // Clear idempotency key from session after success
-            $request->session()->forget("checkout_idempotency_{$cart->id}");
-
-            return redirect()->route('customer.orders.show', $order->id)
-                ->with('success', 'Pesanan berhasil dibuat! Menunggu konfirmasi merchant.');
-
-        } catch (\Exception $e) {
-            return back()->with('error', $e->getMessage());
+            return back()->with('error', 'Checkout gagal diproses. Silakan coba lagi.');
         }
+
+        return redirect()->route('customer.orders.show', $order)
+            ->with('success', 'Pesanan berhasil dibuat dan menunggu konfirmasi katering.');
+    }
+
+    private function uniqueNumber(string $prefix): string
+    {
+        do {
+            $number = $prefix.'-'.now()->format('Ymd').'-'.Str::upper(Str::random(6));
+        } while (
+            $prefix === 'INV'
+                ? Invoice::query()->where('invoice_number', $number)->exists()
+                : Order::query()->where('order_number', $number)->exists()
+        );
+
+        return $number;
     }
 }

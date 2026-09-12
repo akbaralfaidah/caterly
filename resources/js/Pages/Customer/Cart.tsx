@@ -1,7 +1,7 @@
-import { Head, Link, router, usePage } from '@inertiajs/react';
-import toast from 'react-hot-toast';
+import { Head, Link, router } from '@inertiajs/react';
 import GuestLayout from '@/Layouts/GuestLayout';
-import { PageProps, CartData, Address, formatRupiah, formatDateTime } from '@/types';
+import { PageProps, CartData, Address, formatRupiah } from '@/types';
+import { useState } from 'react';
 
 interface Props extends PageProps {
     cart: CartData | null;
@@ -9,6 +9,7 @@ interface Props extends PageProps {
 }
 
 export default function Cart({ cart, addresses }: Props) {
+    const [notes, setNotes] = useState('');
     const updateQuantity = (itemId: number, newQty: number) => {
         if (newQty < 1) return;
         router.patch(`/customer/cart/items/${itemId}`, { quantity: newQty }, { preserveScroll: true });
@@ -25,7 +26,14 @@ export default function Cart({ cart, addresses }: Props) {
     };
 
     const checkout = () => {
-        router.post('/customer/checkout', {}, { preserveScroll: true });
+        const defaultAddress = addresses.find(address => address.is_default);
+        if (!defaultAddress || !cart?.checkout_token) return;
+
+        router.post('/customer/checkout', {
+            address_id: defaultAddress.id,
+            notes,
+            checkout_token: cart.checkout_token,
+        }, { preserveScroll: true });
     };
 
     if (!cart) {
@@ -168,6 +176,20 @@ export default function Cart({ cart, addresses }: Props) {
                                         </div>
                                     )}
                                 </div>
+                                <div>
+                                    <label htmlFor="order-notes" className="block text-xs font-semibold text-text-secondary mb-1">
+                                        Catatan Pesanan (Opsional)
+                                    </label>
+                                    <textarea
+                                        id="order-notes"
+                                        value={notes}
+                                        onChange={event => setNotes(event.target.value)}
+                                        maxLength={500}
+                                        rows={3}
+                                        className="w-full rounded-lg border border-border p-3 text-sm focus:border-primary focus:outline-none"
+                                        placeholder="Contoh: tanpa sambal, hubungi PIC saat tiba"
+                                    />
+                                </div>
                             </div>
                         </div>
 
@@ -193,11 +215,16 @@ export default function Cart({ cart, addresses }: Props) {
 
                             <button 
                                 onClick={checkout}
-                                disabled={!meetsMinimum || !defaultAddress}
+                                disabled={!meetsMinimum || !defaultAddress || cart.is_serviceable === false || cart.items.some(item => !item.is_active)}
                                 className="w-full py-3 bg-primary text-white font-bold rounded-lg hover:bg-primary-dark transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                                 Buat Pesanan
                             </button>
+                            {defaultAddress && cart.is_serviceable === false && (
+                                <p className="mt-3 text-xs font-semibold text-error">
+                                    Katering tidak melayani alamat utama Anda.
+                                </p>
+                            )}
                         </div>
                     </div>
                 </div>

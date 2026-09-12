@@ -1,16 +1,20 @@
 <?php
+
 namespace App\Http\Controllers\Customer;
 
 use App\Http\Controllers\Controller;
-use App\Models\CustomerProfile;
 use App\Models\CustomerAddress;
+use App\Models\CustomerProfile;
 use App\Models\Region;
-use Inertia\Inertia;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Inertia\Inertia;
+use Inertia\Response;
 
 class ProfileController extends Controller
 {
-    public function edit(Request $request)
+    public function edit(Request $request): Response
     {
         $profile = CustomerProfile::where('user_id', auth()->id())->first();
         $addresses = CustomerAddress::where('customer_id', auth()->id())
@@ -31,7 +35,7 @@ class ProfileController extends Controller
         ]);
     }
 
-    public function update(Request $request)
+    public function update(Request $request): RedirectResponse
     {
         $validated = $request->validate([
             'company_name' => 'required|string|max:255',
@@ -39,14 +43,19 @@ class ProfileController extends Controller
             'phone' => 'required|string|max:20',
         ]);
 
-        $profile = CustomerProfile::where('user_id', auth()->id())->first();
-        $profile->update($validated);
-        
-        auth()->user()->update([
-            'name' => $validated['pic_name'],
-            'phone' => $validated['phone'],
-            'company_name' => $validated['company_name'],
-        ]);
+        DB::transaction(function () use ($request, $validated): void {
+            CustomerProfile::query()
+                ->where('user_id', $request->user()->id)
+                ->lockForUpdate()
+                ->firstOrFail()
+                ->update($validated);
+
+            $request->user()->update([
+                'name' => $validated['pic_name'],
+                'phone' => $validated['phone'],
+                'company_name' => $validated['company_name'],
+            ]);
+        }, 3);
 
         return back()->with('success', 'Profil berhasil diperbarui.');
     }

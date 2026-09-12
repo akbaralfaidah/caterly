@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class MerchantServiceArea extends Model
 {
@@ -13,12 +14,12 @@ class MerchantServiceArea extends Model
         return ['delivery_fee' => 'integer'];
     }
 
-    public function region()
+    public function region(): BelongsTo
     {
         return $this->belongsTo(Region::class);
     }
 
-    public function merchant()
+    public function merchant(): BelongsTo
     {
         return $this->belongsTo(User::class, 'merchant_id');
     }

@@ -1,57 +1,58 @@
 <?php
+
 namespace App\Http\Controllers\Customer;
 
 use App\Http\Controllers\Controller;
-use App\Models\Order;
 use App\Models\Invoice;
-use Inertia\Inertia;
+use App\Models\Order;
 use Illuminate\Http\Request;
+use Inertia\Inertia;
+use Inertia\Response;
 
 class InvoiceController extends Controller
 {
-    public function index(Request $request)
+    public function index(Request $request): Response
     {
-        $orders = Order::where('customer_id', auth()->id())
+        $orders = Order::query()
+            ->where('customer_id', $request->user()->id)
             ->whereHas('invoice')
             ->with(['invoice', 'items'])
             ->orderByDesc('created_at')
+            ->orderByDesc('id')
             ->get();
 
         return Inertia::render('Customer/Invoice', [
-            'orders' => $orders->map(fn($o) => [
-                'id' => $o->id,
-                'order_number' => $o->order_number,
-                'invoice_number' => $o->invoice?->invoice_number,
-                'issued_at' => $o->invoice?->issued_at?->toDateString(),
-                'status' => $o->invoice?->status,
-                'merchant_name' => $o->merchant_snapshot['company_name'] ?? '-',
-                'delivery_date' => $o->delivery_date?->toDateString(),
-                'total_idr' => $o->total_idr,
-                'order_status' => $o->order_status,
-                'items_count' => $o->items->count(),
+            'orders' => $orders->map(fn (Order $order): array => [
+                'id' => $order->id,
+                'order_number' => $order->order_number,
+                'invoice_number' => $order->invoice?->invoice_number,
+                'issued_at' => $order->invoice?->issued_at?->toDateString(),
+                'status' => $order->invoice?->status,
+                'merchant_name' => $order->merchant_snapshot['company_name'] ?? $order->merchant_snapshot['name'] ?? '-',
+                'delivery_date' => $order->delivery_date?->toDateString(),
+                'total_idr' => $order->total_idr,
+                'order_status' => $order->order_status,
+                'items_count' => $order->items->count(),
             ]),
         ]);
     }
 
-    public function show(Order $order)
+    public function show(Request $request, Order $order): Response
     {
-        if ($order->customer_id !== auth()->id()) abort(403);
+        abort_unless($order->customer_id === $request->user()->id, 404);
         $order->load(['items', 'paymentProofs', 'invoice']);
 
-        return Inertia::render('Invoice', [
-            'order' => $order,
-            'is_merchant' => false
-        ]);
+        return Inertia::render('Invoice', ['order' => $order, 'is_merchant' => false]);
     }
 
-    public function print(Invoice $invoice)
+    public function print(Request $request, Invoice $invoice): Response
     {
-        $order = $invoice->order;
-        if ($order->customer_id !== auth()->id()) abort(403);
-        $order->load(['items', 'paymentProofs']);
+        $invoice->loadMissing('order');
+        abort_unless($invoice->order->customer_id === $request->user()->id, 404);
+        $invoice->order->load(['items', 'paymentProofs', 'invoice']);
 
         return Inertia::render('Invoice', [
-            'order' => $order,
+            'order' => $invoice->order,
             'is_merchant' => false,
             'print_mode' => true,
         ]);

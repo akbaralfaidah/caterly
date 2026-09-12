@@ -3,11 +3,12 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
-use App\Models\User;
-use App\Models\MerchantProfile;
 use App\Models\CustomerProfile;
+use App\Models\MerchantProfile;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rules\Password;
 use Inertia\Inertia;
@@ -34,29 +35,33 @@ class RegisterController extends Controller
             'password.confirmed' => 'Konfirmasi password tidak cocok.',
         ]);
 
-        $user = User::create([
-            'name' => $request->name,
-            'email' => strtolower(trim($request->email)),
-            'password' => Hash::make($request->password),
-            'role' => $request->role,
-            'company_name' => $request->company_name,
-            'phone' => $request->phone,
-        ]);
+        $user = DB::transaction(function () use ($request): User {
+            $user = User::query()->create([
+                'name' => $request->string('name')->toString(),
+                'email' => $request->string('email')->trim()->lower()->toString(),
+                'password' => Hash::make($request->string('password')->toString()),
+                'role' => $request->string('role')->toString(),
+                'company_name' => $request->string('company_name')->toString(),
+                'phone' => $request->string('phone')->toString(),
+            ]);
 
-        if ($user->isMerchant()) {
-            MerchantProfile::create([
-                'user_id' => $user->id,
-                'company_name' => $request->company_name,
-                'phone' => $request->phone,
-            ]);
-        } else {
-            CustomerProfile::create([
-                'user_id' => $user->id,
-                'company_name' => $request->company_name,
-                'pic_name' => $request->name,
-                'phone' => $request->phone,
-            ]);
-        }
+            if ($user->isMerchant()) {
+                MerchantProfile::query()->create([
+                    'user_id' => $user->id,
+                    'company_name' => $user->company_name,
+                    'phone' => $user->phone,
+                ]);
+            } else {
+                CustomerProfile::query()->create([
+                    'user_id' => $user->id,
+                    'company_name' => $user->company_name,
+                    'pic_name' => $user->name,
+                    'phone' => $user->phone,
+                ]);
+            }
+
+            return $user;
+        }, 3);
 
         Auth::login($user);
         $request->session()->regenerate();

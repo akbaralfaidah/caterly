@@ -11,10 +11,10 @@
         "resolveJsonModule": true,
         "isolatedModules": true,
         "noEmit": true,
+        "types": ["vite/client"],
         "paths": {
             "@/*": ["./resources/js/*"]
-        },
-        "baseUrl": "."
+        }
     },
     "include": ["resources/js/**/*"],
     "exclude": ["node_modules", "vendor"]

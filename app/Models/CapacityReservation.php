@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class CapacityReservation extends Model
 {
@@ -21,12 +22,12 @@ class CapacityReservation extends Model
         ];
     }
 
-    public function order()
+    public function order(): BelongsTo
     {
         return $this->belongsTo(Order::class);
     }
 
-    public function dateCapacity()
+    public function dateCapacity(): BelongsTo
     {
         return $this->belongsTo(MerchantDateCapacity::class, 'capacity_date_id');
     }

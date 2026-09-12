@@ -3,6 +3,8 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
@@ -42,27 +44,27 @@ class User extends Authenticatable
         return $this->role === 'merchant';
     }
 
-    public function merchantProfile()
+    public function merchantProfile(): HasOne
     {
         return $this->hasOne(MerchantProfile::class);
     }
 
-    public function customerProfile()
+    public function customerProfile(): HasOne
     {
         return $this->hasOne(CustomerProfile::class);
     }
 
-    public function customerAddresses()
+    public function customerAddresses(): HasMany
     {
         return $this->hasMany(CustomerAddress::class, 'customer_id');
     }
 
-    public function cart()
+    public function cart(): HasOne
     {
         return $this->hasOne(Cart::class, 'customer_id');
     }
 
-    public function notifications()
+    public function notifications(): HasMany
     {
         return $this->hasMany(Notification::class, 'user_id')->orderByDesc('created_at');
     }

@@ -1,81 +1,73 @@
 # Caterly
 
-Caterly is a web application built using modern technologies designed to provide a robust and efficient experience.
+Caterly adalah marketplace katering korporat berbasis Laravel 13, Inertia.js 3, React 19, TypeScript, MySQL, dan Tailwind CSS 4.
 
-## Technology Stack
+## Persyaratan
 
-This project is built with a powerful, modern stack:
+- PHP 8.3 beserta ekstensi Laravel
+- Composer
+- Node.js dan npm
+- MySQL 8
 
-*   **Backend:** [Laravel 13](https://laravel.com/)
-*   **Frontend:** [React 19](https://react.dev/)
-*   **Integration:** [Inertia.js v3](https://inertiajs.com/)
-*   **Styling:** [TailwindCSS v4](https://tailwindcss.com/)
-*   **Icons:** [Lucide React](https://lucide.dev/)
-*   **Language:** PHP 8.3 & TypeScript
+## Instalasi
 
-## Requirements
+~~~bash
+composer install
+npm install
+copy .env.example .env
+php artisan key:generate
+~~~
 
-Before you begin, ensure you have the following installed:
+Buat database MySQL bernama `caterly`, lalu pilih salah satu cara berikut.
 
-*   PHP >= 8.3
-*   Composer
-*   Node.js & npm (or yarn/pnpm)
-*   A supported database (SQLite is used by default)
+Menggunakan migration dan data demo:
 
-## Getting Started
+~~~bash
+php artisan migrate:fresh --seed
+~~~
 
-Follow these steps to set up the project locally:
+Atau impor snapshot SQL:
 
-1.  **Clone the repository:**
-    ```bash
-    git clone <your-repository-url>
-    cd caterly
-    ```
+~~~bash
+mysql -u root -p caterly < database/caterly.sql
+~~~
 
-2.  **Install PHP dependencies:**
-    ```bash
-    composer install
-    ```
+Jalankan aplikasi:
 
-3.  **Install JavaScript dependencies:**
-    ```bash
-    npm install
-    ```
+~~~bash
+composer run dev
+~~~
 
-4.  **Set up the environment:**
-    ```bash
-    cp .env.example .env
-    php artisan key:generate
-    ```
+Worker scheduler wajib aktif agar order yang melewati batas konfirmasi otomatis menjadi kedaluwarsa dan kapasitasnya dilepas:
 
-5.  **Run database migrations:**
-    ```bash
-    php artisan migrate
-    ```
+~~~bash
+php artisan schedule:work
+~~~
 
-6.  **Start the development servers:**
+Untuk production, jalankan `php artisan schedule:run` setiap menit melalui cron.
 
-    To run both the Laravel backend and Vite frontend development servers simultaneously, you can use the integrated command:
-    ```bash
-    composer run dev
-    ```
-    *(Alternatively, you can run `php artisan serve` and `npm run dev` in separate terminal tabs).*
+## Akun Demo
 
-## Project Structure
+Semua akun memakai password `password1234`.
 
-*   `app/` - Contains the core backend logic (Controllers, Models, etc.)
-*   `resources/js/Pages/` - Contains the React components that serve as views via Inertia.js
-*   `routes/` - Contains all application routes (web.php, api.php)
-*   `database/` - Contains migrations, factories, and seeders
+| Peran | Email |
+| --- | --- |
+| Merchant | `dapur@caterly.test` |
+| Merchant | `sajian@caterly.test` |
+| Customer | `nadia@caterly.test` |
+| Customer | `budi@caterly.test` |
 
-## Testing
+Data rekening pada seeder adalah data demo dan tidak boleh digunakan untuk transfer nyata.
 
-To run the test suite:
+## Pemeriksaan
 
-```bash
-composer run test
-```
+~~~bash
+php artisan test --compact
+npx tsc --noEmit
+npm run build
+vendor/bin/pint --format agent
+composer audit
+npm audit --include=dev
+~~~
 
-## License
-
-This project is open-source software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+Bukti pembayaran disimpan pada disk privat `storage/app/private`. File hanya dapat dibuka merchant pemilik order melalui route yang terautentikasi.

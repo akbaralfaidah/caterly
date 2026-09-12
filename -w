@@ -1,0 +1,12 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="UTF-8" />
+        <meta http-equiv="refresh" content="0;url='http://caterly.test/login'" />
+
+        <title>Redirecting to http://caterly.test/login</title>
+    </head>
+    <body>
+        Redirecting to <a href="http://caterly.test/login">http://caterly.test/login</a>.
+    </body>
+</html>

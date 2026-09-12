@@ -1,5 +1,6 @@
 ﻿import { Head, Link } from '@inertiajs/react';
 import GuestLayout from '@/Layouts/GuestLayout';
+import { router } from '@inertiajs/react';
 import { PageProps, PaginatedData, OrderData, ORDER_STATUS_LABELS, PAYMENT_STATUS_LABELS, formatRupiah, formatDateTime, formatDate } from '@/types';
 
 interface Props extends PageProps {
@@ -7,6 +8,17 @@ interface Props extends PageProps {
 }
 
 export default function Orders({ orders }: Props) {
+    const reorder = (orderId: number) => {
+        const suggestedDate = new Date(Date.now() + 2 * 86400000).toISOString().slice(0, 10);
+        const deliveryDate = prompt('Tanggal pengiriman baru (YYYY-MM-DD):', suggestedDate);
+        if (!deliveryDate || !confirm('Keranjang aktif akan diganti dengan menu pesanan ini. Lanjutkan?')) return;
+
+        router.post('/customer/orders/' + orderId + '/reorder', {
+            delivery_date: deliveryDate,
+            replace_cart: true,
+        });
+    };
+
     const getStatusColor = (status: string) => {
         switch (status) {
             case 'pending_confirmation': return 'bg-accent-light text-accent-dark border-accent-light';
@@ -93,7 +105,7 @@ export default function Orders({ orders }: Props) {
                                             Lihat Detail
                                         </Link>
                                         {order.order_status === 'completed' && (
-                                            <button className="w-full sm:w-auto text-center px-5 py-2 border border-border text-text-primary font-semibold rounded-lg hover:bg-surface transition-colors">
+                                            <button onClick={() => reorder(order.id)} className="w-full sm:w-auto text-center px-5 py-2 border border-border text-text-primary font-semibold rounded-lg hover:bg-surface transition-colors">
                                                 Pesan Lagi
                                             </button>
                                         )}

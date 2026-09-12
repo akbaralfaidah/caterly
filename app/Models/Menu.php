@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Menu extends Model
@@ -27,17 +28,17 @@ class Menu extends Model
         ];
     }
 
-    public function merchant()
+    public function merchant(): BelongsTo
     {
         return $this->belongsTo(User::class, 'merchant_id');
     }
 
-    public function merchantProfile()
+    public function merchantProfile(): BelongsTo
     {
         return $this->belongsTo(MerchantProfile::class, 'merchant_id', 'user_id');
     }
 
-    public function category()
+    public function category(): BelongsTo
     {
         return $this->belongsTo(Category::class);
     }

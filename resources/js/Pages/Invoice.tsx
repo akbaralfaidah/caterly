@@ -22,7 +22,8 @@ export default function Invoice({ order, is_merchant }: Props) {
                 <div className="flex justify-between items-start border-b-2 border-gray-200 pb-8 mb-8">
                     <div>
                         <h1 className="text-4xl font-extrabold text-primary mb-2 tracking-tight">INVOICE</h1>
-                        <p className="text-gray-500 font-medium">#{order.order_number}</p>
+                        <p className="text-gray-500 font-medium">#{order.invoice?.invoice_number || order.order_number}</p>
+                        {order.invoice?.status === 'void' && <p className="mt-2 inline-block rounded bg-red-100 px-2 py-1 text-xs font-black uppercase text-red-600">Void</p>}
                     </div>
                     <div className="text-right">
                         <div className="text-3xl font-black text-gray-800 mb-1 tracking-tight">Caterly</div>

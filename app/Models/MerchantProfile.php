@@ -3,6 +3,8 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class MerchantProfile extends Model
 {
@@ -28,27 +30,27 @@ class MerchantProfile extends Model
         ];
     }
 
-    public function user()
+    public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
     }
 
-    public function menus()
+    public function menus(): HasMany
     {
         return $this->hasMany(Menu::class, 'merchant_id', 'user_id');
     }
 
-    public function serviceAreas()
+    public function serviceAreas(): HasMany
     {
         return $this->hasMany(MerchantServiceArea::class, 'merchant_id', 'user_id');
     }
 
-    public function operatingDays()
+    public function operatingDays(): HasMany
     {
         return $this->hasMany(MerchantOperatingDay::class, 'merchant_id', 'user_id');
     }
 
-    public function dateCapacities()
+    public function dateCapacities(): HasMany
     {
         return $this->hasMany(MerchantDateCapacity::class, 'merchant_id', 'user_id');
     }

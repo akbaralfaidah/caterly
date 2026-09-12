@@ -1,54 +1,133 @@
 <?php
+
 namespace App\Http\Controllers\Merchant;
 
 use App\Http\Controllers\Controller;
 use App\Models\MerchantDateCapacity;
+use App\Models\MerchantOperatingDay;
 use App\Models\MerchantProfile;
-use Inertia\Inertia;
+use App\Models\Order;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
+use Inertia\Inertia;
+use Inertia\Response;
 
 class CapacityController extends Controller
 {
-    public function index(Request $request)
+    public function index(Request $request): Response
     {
-        $merchantId = auth()->id();
-        $profile = MerchantProfile::where('user_id', $merchantId)->first();
-        
-        $start = now()->startOfMonth()->toDateString();
-        $end = now()->addMonths(2)->endOfMonth()->toDateString();
+        $merchantId = $request->user()->id;
+        $profile = MerchantProfile::query()->where('user_id', $merchantId)->firstOrFail();
 
-        $capacities = MerchantDateCapacity::where('merchant_id', $merchantId)
-            ->whereBetween('delivery_date', [$start, $end])
+        $capacities = MerchantDateCapacity::query()
+            ->where('merchant_id', $merchantId)
+            ->whereBetween('delivery_date', [today()->toDateString(), today()->addDays(60)->toDateString()])
+            ->orderBy('delivery_date')
             ->get();
+
+        $storedDays = MerchantOperatingDay::query()
+            ->where('merchant_id', $merchantId)
+            ->get()
+            ->keyBy('weekday');
+        $operatingDays = collect(range(0, 6))->map(fn (int $weekday): array => [
+            'weekday' => $weekday,
+            'is_open' => (bool) ($storedDays->get($weekday)?->is_open ?? false),
+        ]);
 
         return Inertia::render('Merchant/Capacity', [
             'default_capacity' => $profile->default_daily_capacity,
-            'capacities' => $capacities
+            'capacities' => $capacities,
+            'operating_days' => $operatingDays,
         ]);
     }
 
-    public function override(Request $request)
+    public function override(Request $request): RedirectResponse
     {
         $validated = $request->validate([
-            'date' => 'required|date',
-            'is_closed' => 'required|boolean',
-            'override_capacity' => 'nullable|integer|min:0'
+            'date' => ['required', 'date', 'after_or_equal:today', 'before_or_equal:'.today()->addDays(60)->toDateString()],
+            'is_closed' => ['required', 'boolean'],
+            'capacity' => ['nullable', 'integer', 'min:0', 'max:100000'],
         ]);
 
-        $capacity = MerchantDateCapacity::firstOrCreate(
-            ['merchant_id' => auth()->id(), 'delivery_date' => $validated['date']],
-            ['reserved_capacity' => 0]
-        );
+        $profile = MerchantProfile::query()->where('user_id', $request->user()->id)->firstOrFail();
+        $deliveryDate = Carbon::parse($validated['date'])->startOfDay();
 
-        if ($validated['is_closed']) {
-            $capacity->update(['is_closed' => true, 'override_capacity' => null]);
-        } else {
+        DB::transaction(function () use ($deliveryDate, $profile, $request, $validated): void {
+            $record = MerchantDateCapacity::query()->firstOrCreate(
+                [
+                    'merchant_id' => $request->user()->id,
+                    'delivery_date' => $deliveryDate,
+                ],
+                [
+                    'capacity' => $profile->default_daily_capacity,
+                    'reserved_portions' => 0,
+                    'is_closed' => false,
+                    'is_override' => false,
+                ],
+            );
+            $capacity = MerchantDateCapacity::query()->lockForUpdate()->findOrFail($record->id);
+            $requestedCapacity = $validated['capacity'] ?? $profile->default_daily_capacity;
+
+            if ($request->boolean('is_closed') && $capacity->reserved_portions > 0) {
+                throw ValidationException::withMessages([
+                    'is_closed' => 'Tanggal dengan reservasi aktif tidak dapat ditutup.',
+                ]);
+            }
+
+            if (! $request->boolean('is_closed') && $requestedCapacity < $capacity->reserved_portions) {
+                throw ValidationException::withMessages([
+                    'capacity' => "Kapasitas minimal {$capacity->reserved_portions} karena sudah ada reservasi aktif.",
+                ]);
+            }
+
             $capacity->update([
-                'is_closed' => false,
-                'override_capacity' => $validated['override_capacity']
+                'capacity' => $requestedCapacity,
+                'is_closed' => $request->boolean('is_closed'),
+                'is_override' => true,
             ]);
-        }
+        }, 3);
 
         return back()->with('success', 'Kapasitas tanggal berhasil diperbarui.');
+    }
+
+    public function updateOperatingDays(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'days' => ['required', 'array', 'size:7'],
+            'days.*.weekday' => ['required', 'integer', 'between:0,6', 'distinct'],
+            'days.*.is_open' => ['required', 'boolean'],
+        ]);
+
+        DB::transaction(function () use ($request, $validated): void {
+            foreach ($validated['days'] as $day) {
+                if (! $day['is_open']) {
+                    $hasActiveOrder = Order::query()
+                        ->where('merchant_id', $request->user()->id)
+                        ->whereBetween('delivery_date', [today(), today()->addDays(30)])
+                        ->whereIn('order_status', ['pending_confirmation', 'accepted', 'preparing', 'delivering'])
+                        ->get(['delivery_date'])
+                        ->contains(fn (Order $order): bool => $order->delivery_date->dayOfWeek === (int) $day['weekday']);
+
+                    if ($hasActiveOrder) {
+                        throw ValidationException::withMessages([
+                            'days' => 'Hari operasional dengan pesanan aktif tidak dapat ditutup.',
+                        ]);
+                    }
+                }
+
+                MerchantOperatingDay::query()->updateOrCreate(
+                    [
+                        'merchant_id' => $request->user()->id,
+                        'weekday' => $day['weekday'],
+                    ],
+                    ['is_open' => $day['is_open']],
+                );
+            }
+        }, 3);
+
+        return back()->with('success', 'Hari operasional berhasil diperbarui.');
     }
 }

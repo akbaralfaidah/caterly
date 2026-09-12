@@ -2,32 +2,38 @@
 import MerchantLayout from '@/Layouts/MerchantLayout';
 import { PageProps } from '@/types';
 import { useState } from 'react';
+import toast from 'react-hot-toast';
 
 interface CapacityRecord {
     id: number;
     delivery_date: string;
-    reserved_capacity: number;
-    override_capacity: number | null;
+    capacity: number;
+    reserved_portions: number;
     is_closed: boolean;
+    is_override: boolean;
 }
 
 interface Props extends PageProps {
     default_capacity: number;
     capacities: CapacityRecord[];
+    operating_days: { weekday: number; is_open: boolean }[];
 }
 
-export default function Capacity({ default_capacity, capacities }: Props) {
+const dayNames = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+
+export default function Capacity({ default_capacity, capacities, operating_days }: Props) {
     const [selectedDate, setSelectedDate] = useState<string>('');
     const [isClosed, setIsClosed] = useState(false);
     const [overrideVal, setOverrideVal] = useState<string>('');
     const [modalOpen, setModalOpen] = useState(false);
+    const [operatingDays, setOperatingDays] = useState(operating_days);
 
     const openModal = (dateStr: string) => {
         const record = capacities.find(c => c.delivery_date === dateStr);
         setSelectedDate(dateStr);
         if (record) {
             setIsClosed(record.is_closed);
-            setOverrideVal(record.override_capacity !== null ? record.override_capacity.toString() : '');
+            setOverrideVal(record.is_override ? record.capacity.toString() : '');
         } else {
             setIsClosed(false);
             setOverrideVal('');
@@ -40,10 +46,18 @@ export default function Capacity({ default_capacity, capacities }: Props) {
         router.post('/merchant/capacity/override', {
             date: selectedDate,
             is_closed: isClosed,
-            override_capacity: overrideVal ? parseInt(overrideVal) : null
+            capacity: overrideVal ? parseInt(overrideVal) : null
         }, {
             preserveScroll: true,
-            onSuccess: () => setModalOpen(false)
+            onSuccess: () => setModalOpen(false),
+            onError: errors => toast.error(String(Object.values(errors)[0] || 'Kapasitas gagal disimpan.')),
+        });
+    };
+
+    const saveOperatingDays = () => {
+        router.patch('/merchant/operating-days', { days: operatingDays }, {
+            preserveScroll: true,
+            onError: errors => toast.error(String(Object.values(errors)[0] || 'Jadwal gagal disimpan.')),
         });
     };
 
@@ -56,8 +70,8 @@ export default function Capacity({ default_capacity, capacities }: Props) {
         const dateStr = d.toISOString().split('T')[0];
         
         const record = capacities.find(c => c.delivery_date === dateStr);
-        const maxCap = record?.override_capacity ?? default_capacity;
-        const reserved = record?.reserved_capacity ?? 0;
+        const maxCap = record?.capacity ?? default_capacity;
+        const reserved = record?.reserved_portions ?? 0;
         const closed = record?.is_closed ?? false;
 
         days.push({
@@ -112,13 +126,38 @@ export default function Capacity({ default_capacity, capacities }: Props) {
                                     <div className="w-full bg-border rounded-full h-1.5 overflow-hidden">
                                         <div 
                                             className={`h-full ${day.available <= 0 ? 'bg-error' : day.available < (day.maxCap * 0.2) ? 'bg-accent' : 'bg-primary'}`} 
-                                            style={{ width: `${Math.min(100, (day.reserved / day.maxCap) * 100)}%` }}
+                                            style={{ width: `${day.maxCap > 0 ? Math.min(100, (day.reserved / day.maxCap) * 100) : 100}%` }}
                                         ></div>
                                     </div>
-                                    <p className="text-[10px] text-text-secondary mt-1 mt-2 text-right">{day.available} sisa</p>
+                                    <p className="text-[10px] text-text-secondary mt-2 text-right">{day.available} sisa</p>
                                 </>
                             )}
                         </div>
+                    ))}
+                </div>
+            </div>
+
+            <div className="bg-white border border-border rounded-xl shadow-sm p-6 mb-6">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-5">
+                    <div>
+                        <h3 className="font-bold text-text-primary">Hari Operasional Mingguan</h3>
+                        <p className="text-sm text-text-secondary">Perubahan tidak dapat menutup hari yang sudah memiliki pesanan aktif.</p>
+                    </div>
+                    <button onClick={saveOperatingDays} className="px-4 py-2 rounded-lg bg-primary text-white text-sm font-semibold hover:bg-primary-dark">
+                        Simpan Jadwal
+                    </button>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
+                    {operatingDays.map((day, index) => (
+                        <label key={day.weekday} className="flex items-center gap-2 rounded-lg border border-border p-3 text-sm font-semibold">
+                            <input
+                                type="checkbox"
+                                checked={day.is_open}
+                                onChange={event => setOperatingDays(current => current.map((item, itemIndex) => itemIndex === index ? { ...item, is_open: event.target.checked } : item))}
+                                className="rounded text-primary focus:ring-primary"
+                            />
+                            {dayNames[day.weekday]}
+                        </label>
                     ))}
                 </div>
             </div>

@@ -3,12 +3,13 @@ import { PageProps } from '@/types';
 import { ReactNode, useState } from 'react';
 
 const navItems = [
-    { label: 'Ringkasan', href: '/merchant/dashboard', icon: 'ðŸ“‹' },
-    { label: 'Menu', href: '/merchant/menus', icon: 'ðŸ±' },
-    { label: 'Pesanan', href: '/merchant/orders', icon: 'ðŸ“¦' },
-    { label: 'Jadwal & Kapasitas', href: '/merchant/capacity', icon: 'ðŸ“…' },
-    { label: 'Invoice', href: '/merchant/invoices', icon: 'ðŸ§¾' },
-    { label: 'Profil Usaha', href: '/merchant/profile', icon: 'ðŸª' },
+    { label: 'Ringkasan', href: '/merchant/dashboard', icon: '📋' },
+    { label: 'Menu', href: '/merchant/menus', icon: '🍱' },
+    { label: 'Pesanan', href: '/merchant/orders', icon: '📦' },
+    { label: 'Produksi', href: '/merchant/production', icon: '👩‍🍳' },
+    { label: 'Jadwal & Kapasitas', href: '/merchant/capacity', icon: '📅' },
+    { label: 'Invoice', href: '/merchant/invoices', icon: '🧾' },
+    { label: 'Profil Usaha', href: '/merchant/profile', icon: '🏪' },
 ];
 
 export default function MerchantLayout({ children, title }: { children: ReactNode; title?: string }) {

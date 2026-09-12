@@ -1,108 +1,132 @@
 <?php
+
 namespace App\Http\Controllers\Merchant;
 
 use App\Http\Controllers\Controller;
-use App\Models\Menu;
 use App\Models\Category;
-use Inertia\Inertia;
+use App\Models\Menu;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Inertia\Inertia;
+use Inertia\Response;
 
 class MenuController extends Controller
 {
-    public function index(Request $request)
+    public function index(Request $request): Response
     {
-        $menus = Menu::where('merchant_id', auth()->id())
+        $menus = Menu::query()
+            ->where('merchant_id', $request->user()->id)
             ->with('category')
             ->orderBy('category_id')
             ->orderBy('name')
             ->get()
-            ->map(fn($m) => [
-                'id' => $m->id,
-                'name' => $m->name,
-                'description' => $m->description,
-                'price_idr' => $m->price_idr,
-                'image_path' => $m->image_path,
-                'is_active' => $m->is_active,
-                'category_id' => $m->category_id,
-                'category' => $m->category ? $m->category->name : null,
+            ->map(fn (Menu $menu): array => [
+                'id' => $menu->id,
+                'name' => $menu->name,
+                'description' => $menu->description,
+                'price_idr' => $menu->price_idr,
+                'image_path' => $menu->image_path,
+                'is_active' => $menu->is_active,
+                'category_id' => $menu->category_id,
+                'category' => $menu->category?->name,
             ]);
-            
-        $categories = Category::orderBy('name')->get();
 
         return Inertia::render('Merchant/Menus', [
             'menus' => $menus,
-            'categories' => $categories
+            'categories' => Category::query()->orderBy('name')->get(),
         ]);
     }
 
-    public function store(Request $request)
+    public function create(): RedirectResponse
     {
-        $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'description' => 'required|string',
-            'price_idr' => 'required|numeric|min:0',
-            'category_id' => 'required|exists:categories,id',
-            'image' => 'nullable|image|max:2048',
+        return redirect()->route('merchant.menus.index');
+    }
+
+    public function store(Request $request): RedirectResponse
+    {
+        $validated = $request->validate($this->rules(imageRequired: true));
+        $path = $request->file('image')->store('menus', 'public');
+
+        Menu::query()->create([
+            'merchant_id' => $request->user()->id,
+            'category_id' => $validated['category_id'],
+            'name' => $validated['name'],
+            'description' => $validated['description'],
+            'price_idr' => $validated['price_idr'],
+            'image_path' => $path,
+            'is_active' => true,
         ]);
-
-        $menu = new Menu($validated);
-        $menu->merchant_id = auth()->id();
-        $menu->is_active = true;
-
-        if ($request->hasFile('image')) {
-            $path = $request->file('image')->store('menus', 'public');
-            $menu->image_path = $path;
-        }
-
-        $menu->save();
 
         return back()->with('success', 'Menu berhasil ditambahkan.');
     }
 
-    public function update(Request $request, Menu $menu)
+    public function edit(Request $request, Menu $menu): RedirectResponse
     {
-        if ($menu->merchant_id !== auth()->id()) abort(403);
+        $this->ensureOwner($request, $menu);
 
-        $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'description' => 'required|string',
-            'price_idr' => 'required|numeric|min:0',
-            'category_id' => 'required|exists:categories,id',
-            'image' => 'nullable|image|max:2048',
+        return redirect()->route('merchant.menus.index');
+    }
+
+    public function update(Request $request, Menu $menu): RedirectResponse
+    {
+        $this->ensureOwner($request, $menu);
+        $validated = $request->validate($this->rules(imageRequired: false));
+        $oldImagePath = $menu->image_path;
+
+        $menu->fill([
+            'category_id' => $validated['category_id'],
+            'name' => $validated['name'],
+            'description' => $validated['description'],
+            'price_idr' => $validated['price_idr'],
         ]);
 
-        $menu->fill($validated);
-
         if ($request->hasFile('image')) {
-            if ($menu->image_path) {
-                Storage::disk('public')->delete($menu->image_path);
-            }
-            $path = $request->file('image')->store('menus', 'public');
-            $menu->image_path = $path;
+            $menu->image_path = $request->file('image')->store('menus', 'public');
         }
 
         $menu->save();
 
+        if ($request->hasFile('image') && $oldImagePath) {
+            Storage::disk('public')->delete($oldImagePath);
+        }
+
         return back()->with('success', 'Menu berhasil diperbarui.');
     }
 
-    public function destroy(Menu $menu)
+    public function destroy(Request $request, Menu $menu): RedirectResponse
     {
-        if ($menu->merchant_id !== auth()->id()) abort(403);
-        
+        $this->ensureOwner($request, $menu);
         $menu->delete();
+
         return back()->with('success', 'Menu berhasil dihapus.');
     }
 
-    public function toggle(Menu $menu)
+    public function toggle(Request $request, Menu $menu): RedirectResponse
     {
-        if ($menu->merchant_id !== auth()->id()) abort(403);
-        
-        $menu->is_active = !$menu->is_active;
-        $menu->save();
-        
+        $this->ensureOwner($request, $menu);
+        $menu->update(['is_active' => ! $menu->is_active]);
         $status = $menu->is_active ? 'diaktifkan' : 'dinonaktifkan';
+
         return back()->with('success', "Menu berhasil {$status}.");
+    }
+
+    /**
+     * @return array<string, list<string>>
+     */
+    private function rules(bool $imageRequired): array
+    {
+        return [
+            'name' => ['required', 'string', 'max:100'],
+            'description' => ['required', 'string', 'max:1000'],
+            'price_idr' => ['required', 'integer', 'min:1', 'max:10000000'],
+            'category_id' => ['required', 'integer', 'exists:categories,id'],
+            'image' => [$imageRequired ? 'required' : 'nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'extensions:jpg,jpeg,png,webp', 'max:3072'],
+        ];
+    }
+
+    private function ensureOwner(Request $request, Menu $menu): void
+    {
+        abort_unless($menu->merchant_id === $request->user()->id, 404);
     }
 }

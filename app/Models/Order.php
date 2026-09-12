@@ -3,6 +3,9 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Order extends Model
 {
@@ -45,37 +48,37 @@ class Order extends Model
         ];
     }
 
-    public function customer()
+    public function customer(): BelongsTo
     {
         return $this->belongsTo(User::class, 'customer_id');
     }
 
-    public function merchant()
+    public function merchant(): BelongsTo
     {
         return $this->belongsTo(User::class, 'merchant_id');
     }
 
-    public function items()
+    public function items(): HasMany
     {
         return $this->hasMany(OrderItem::class);
     }
 
-    public function invoice()
+    public function invoice(): HasOne
     {
         return $this->hasOne(Invoice::class);
     }
 
-    public function paymentProofs()
+    public function paymentProofs(): HasMany
     {
         return $this->hasMany(PaymentProof::class);
     }
 
-    public function statusEvents()
+    public function statusEvents(): HasMany
     {
         return $this->hasMany(OrderStatusEvent::class)->orderBy('created_at');
     }
 
-    public function capacityReservation()
+    public function capacityReservation(): HasOne
     {
         return $this->hasOne(CapacityReservation::class);
     }

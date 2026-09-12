@@ -1,4 +1,4 @@
-import { Head, Link, useForm, router } from '@inertiajs/react';
+import { Head, Link, router } from '@inertiajs/react';
 import GuestLayout from '@/Layouts/GuestLayout';
 import { PageProps, MenuItem, Region, CartData } from '@/types';
 import { useState } from 'react';
@@ -40,6 +40,10 @@ export default function MerchantDetail({ auth, merchant, menus, cart }: Props) {
             router.get('/login');
             return;
         }
+        if (auth.user.role !== 'customer') {
+            toast.error('Akun merchant tidak dapat membuat pesanan pelanggan.');
+            return;
+        }
 
         if (!selectedDate) {
             toast.error('Pilih tanggal pengiriman terlebih dahulu.');
@@ -52,18 +56,24 @@ export default function MerchantDetail({ auth, merchant, menus, cart }: Props) {
             return;
         }
 
+        const replaceCart = Boolean(cart && cart.merchant_id !== merchant.id);
+        if (replaceCart && !confirm('Keranjang Anda berisi menu dari ' + cart?.merchant_name + '. Ganti seluruh keranjang?')) {
+            return;
+        }
+
         router.post('/customer/cart/add', {
             menu_id: menuId,
             quantity: quantity,
-            delivery_date: selectedDate
+            delivery_date: selectedDate,
+            replace_cart: replaceCart,
         }, {
             preserveScroll: true,
             onSuccess: () => {
                 toast.success('Berhasil ditambahkan ke keranjang!');
                 setQuantities(prev => ({ ...prev, [menuId]: 0 }));
             },
-            onError: (errors: any) => {
-                toast.error(errors.message || 'Gagal menambahkan ke keranjang.');
+            onError: (errors) => {
+                toast.error(String(Object.values(errors)[0] || 'Gagal menambahkan ke keranjang.'));
             }
         });
     };
@@ -136,6 +146,7 @@ export default function MerchantDetail({ auth, merchant, menus, cart }: Props) {
                                     value={selectedDate}
                                     onChange={e => setSelectedDate(e.target.value)}
                                     min={new Date(Date.now() + 86400000).toISOString().split('T')[0]}
+                                    max={new Date(Date.now() + 30 * 86400000).toISOString().split('T')[0]}
                                     className="px-4 py-3 rounded-xl border border-border bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors outline-none min-w-[200px]"
                                 />
                             </div>
@@ -221,11 +232,11 @@ export default function MerchantDetail({ auth, merchant, menus, cart }: Props) {
                                         {cart.items.map((item, idx) => (
                                             <div key={idx} className="flex justify-between items-start gap-2 border-b border-border pb-3 last:border-0 last:pb-0">
                                                 <div>
-                                                    <div className="font-bold text-text-primary text-sm line-clamp-1">{item.menu?.name}</div>
-                                                    <div className="text-xs text-text-secondary mt-1">{item.quantity} porsi x Rp {(item.menu?.price_idr || 0).toLocaleString('id-ID')}</div>
+                                                    <div className="font-bold text-text-primary text-sm line-clamp-1">{item.name}</div>
+                                                    <div className="text-xs text-text-secondary mt-1">{item.quantity} porsi x Rp {item.price_idr.toLocaleString('id-ID')}</div>
                                                 </div>
                                                 <div className="font-bold text-text-primary text-sm shrink-0">
-                                                    Rp {((item.menu?.price_idr || 0) * item.quantity).toLocaleString('id-ID')}
+                                                    Rp {(item.price_idr * item.quantity).toLocaleString('id-ID')}
                                                 </div>
                                             </div>
                                         ))}

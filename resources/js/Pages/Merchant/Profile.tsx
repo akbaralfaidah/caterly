@@ -2,6 +2,7 @@
 import MerchantLayout from '@/Layouts/MerchantLayout';
 import { PageProps, Region } from '@/types';
 import { FormEvent, useState } from 'react';
+import toast from 'react-hot-toast';
 
 interface Props extends PageProps {
     profile: {
@@ -11,6 +12,9 @@ interface Props extends PageProps {
         description: string | null;
         minimum_portions: number;
         default_daily_capacity: number;
+        bank_name: string | null;
+        bank_account_name: string | null;
+        bank_account_number: string | null;
         publication_status: 'draft' | 'published';
     };
     serviceAreas: { region_id: number; delivery_fee: number; region: Region }[];
@@ -25,6 +29,9 @@ export default function Profile({ profile, serviceAreas, regions }: Props) {
         description: profile.description || '',
         minimum_portions: profile.minimum_portions || 10,
         default_daily_capacity: profile.default_daily_capacity || 100,
+        bank_name: profile.bank_name || '',
+        bank_account_name: profile.bank_account_name || '',
+        bank_account_number: profile.bank_account_number || '',
     });
 
     const [areas, setAreas] = useState<{ region_id: number; delivery_fee: number }[]>(
@@ -44,6 +51,7 @@ export default function Profile({ profile, serviceAreas, regions }: Props) {
         router.post('/merchant/profile/service-areas', { areas }, {
             preserveScroll: true,
             onFinish: () => setAreasLoading(false),
+            onError: errors => toast.error(String(Object.values(errors)[0] || 'Area layanan gagal disimpan.')),
         });
     };
 
@@ -147,6 +155,39 @@ export default function Profile({ profile, serviceAreas, regions }: Props) {
                                     </div>
                                 </div>
 
+                                <div className="border-t border-border pt-5">
+                                    <h4 className="font-bold text-text-primary mb-4">Rekening Pembayaran</h4>
+                                    <div className="grid sm:grid-cols-2 gap-5">
+                                        <div>
+                                            <label className="block text-sm font-semibold text-text-primary mb-1.5">Nama Bank</label>
+                                            <input
+                                                value={data.bank_name}
+                                                onChange={event => setData('bank_name', event.target.value)}
+                                                className="w-full h-11 px-3 border border-border rounded-lg text-[15px] focus:outline-none focus:border-primary"
+                                            />
+                                            {errors.bank_name && <p className="text-error text-sm mt-1">{errors.bank_name}</p>}
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-semibold text-text-primary mb-1.5">Nomor Rekening</label>
+                                            <input
+                                                value={data.bank_account_number}
+                                                onChange={event => setData('bank_account_number', event.target.value)}
+                                                className="w-full h-11 px-3 border border-border rounded-lg text-[15px] focus:outline-none focus:border-primary"
+                                            />
+                                            {errors.bank_account_number && <p className="text-error text-sm mt-1">{errors.bank_account_number}</p>}
+                                        </div>
+                                        <div className="sm:col-span-2">
+                                            <label className="block text-sm font-semibold text-text-primary mb-1.5">Nama Pemilik Rekening</label>
+                                            <input
+                                                value={data.bank_account_name}
+                                                onChange={event => setData('bank_account_name', event.target.value)}
+                                                className="w-full h-11 px-3 border border-border rounded-lg text-[15px] focus:outline-none focus:border-primary"
+                                            />
+                                            {errors.bank_account_name && <p className="text-error text-sm mt-1">{errors.bank_account_name}</p>}
+                                        </div>
+                                    </div>
+                                </div>
+
                                 <div className="grid sm:grid-cols-2 gap-5">
                                     <div>
                                         <label className="block text-sm font-semibold text-text-primary mb-1.5">Minimal Pesanan (Porsi)</label>
@@ -197,7 +238,12 @@ export default function Profile({ profile, serviceAreas, regions }: Props) {
                         </div>
                         <div className="p-5">
                             {areas.length === 0 ? (
-                                <p className="text-sm text-text-secondary text-center py-4">Belum ada area layanan yang diatur.</p>
+                                <div className="text-center py-4">
+                                    <p className="text-sm text-text-secondary mb-3">Belum ada area layanan yang diatur.</p>
+                                    <button onClick={saveServiceAreas} disabled={areasLoading} className="text-sm font-bold text-primary">
+                                        Simpan daftar kosong
+                                    </button>
+                                </div>
                             ) : (
                                 <div className="space-y-4">
                                     {areas.map((area, idx) => (

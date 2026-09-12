@@ -2,40 +2,40 @@
 
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\RegisterController;
-use App\Http\Controllers\MarketplaceController;
-use App\Http\Controllers\Customer\CartController;
-use App\Http\Controllers\Customer\OrderController as CustomerOrderController;
-use App\Http\Controllers\Customer\ProfileController as CustomerProfileController;
 use App\Http\Controllers\Customer\AddressController;
+use App\Http\Controllers\Customer\CartController;
 use App\Http\Controllers\Customer\CheckoutController;
 use App\Http\Controllers\Customer\InvoiceController as CustomerInvoiceController;
+use App\Http\Controllers\Customer\OrderController as CustomerOrderController;
+use App\Http\Controllers\Customer\ProfileController as CustomerProfileController;
+use App\Http\Controllers\MarketplaceController;
+use App\Http\Controllers\Merchant\CapacityController;
 use App\Http\Controllers\Merchant\DashboardController;
+use App\Http\Controllers\Merchant\InvoiceController as MerchantInvoiceController;
 use App\Http\Controllers\Merchant\MenuController;
 use App\Http\Controllers\Merchant\OrderController as MerchantOrderController;
 use App\Http\Controllers\Merchant\ProfileController as MerchantProfileController;
-use App\Http\Controllers\Merchant\CapacityController;
-use App\Http\Controllers\Merchant\InvoiceController as MerchantInvoiceController;
 use App\Http\Controllers\NotificationController;
 use Illuminate\Support\Facades\Route;
 
 // Public
-Route::get('/', fn() => redirect('/marketplace'));
+Route::get('/', fn () => redirect('/marketplace'));
 Route::get('/marketplace', [MarketplaceController::class, 'index'])->name('marketplace.index');
 Route::get('/marketplace/{merchant}', [MarketplaceController::class, 'show'])->name('merchants.show');
 
 // Guest only
 Route::middleware('guest')->group(function () {
     Route::get('/login', [LoginController::class, 'create'])->name('login');
-    Route::post('/login', [LoginController::class, 'store']);
+    Route::post('/login', [LoginController::class, 'store'])->middleware('throttle:5,1');
     Route::get('/register', [RegisterController::class, 'create'])->name('register');
-    Route::post('/register', [RegisterController::class, 'store']);
+    Route::post('/register', [RegisterController::class, 'store'])->middleware('throttle:5,1');
 });
 
 // Auth
 Route::post('/logout', [LoginController::class, 'destroy'])->middleware('auth')->name('logout');
 
 // Customer routes
-Route::middleware(['auth'])->prefix('customer')->name('customer.')->group(function () {
+Route::middleware(['auth', 'role:customer'])->prefix('customer')->name('customer.')->group(function () {
     // Cart
     Route::get('/cart', [CartController::class, 'show'])->name('cart');
     Route::post('/cart/add', [CartController::class, 'addItem'])->name('cart.add');
@@ -54,7 +54,9 @@ Route::middleware(['auth'])->prefix('customer')->name('customer.')->group(functi
     Route::post('/orders/{order}/reorder', [CustomerOrderController::class, 'reorder'])->name('orders.reorder');
 
     // Payment
-    Route::post('/orders/{order}/payment', [CustomerOrderController::class, 'uploadPayment'])->name('orders.payment.upload');
+    Route::post('/orders/{order}/payment', [CustomerOrderController::class, 'uploadPayment'])
+        ->middleware('throttle:10,1')
+        ->name('orders.payment.upload');
 
     // Invoices
     Route::get('/invoices', [CustomerInvoiceController::class, 'index'])->name('invoices.index');
@@ -74,7 +76,7 @@ Route::middleware(['auth'])->prefix('customer')->name('customer.')->group(functi
 });
 
 // Merchant routes
-Route::middleware(['auth'])->prefix('merchant')->name('merchant.')->group(function () {
+Route::middleware(['auth', 'role:merchant'])->prefix('merchant')->name('merchant.')->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
     // Menu

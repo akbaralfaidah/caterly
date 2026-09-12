@@ -7,6 +7,7 @@ export interface User {
 }
 
 export interface PageProps {
+    [key: string]: unknown;
     auth: {
         user: User | null;
     };
@@ -66,6 +67,8 @@ export interface CartData {
     items: CartItemData[];
     total_portions: number;
     subtotal: number;
+    checkout_token?: string;
+    is_serviceable?: boolean;
 }
 
 export interface CartItemData {
@@ -90,6 +93,35 @@ export interface Address {
     region_id: number;
 }
 
+export interface CustomerSnapshot {
+    name: string;
+    email: string;
+    phone: string | null;
+    company_name: string;
+}
+
+export interface MerchantSnapshot {
+    name: string;
+    company_name: string;
+    phone: string | null;
+    address: string | null;
+}
+
+export interface AddressSnapshot {
+    label: string;
+    receiver: string;
+    phone: string;
+    address: string;
+    region: string | null;
+    notes: string | null;
+}
+
+export interface BankSnapshot {
+    bank_name: string | null;
+    bank_account_name: string | null;
+    bank_account_number: string | null;
+}
+
 export interface OrderData {
     id: number;
     order_number: string;
@@ -104,10 +136,10 @@ export interface OrderData {
     expires_at: string | null;
     notes: string | null;
     created_at: string;
-    customer_snapshot: any;
-    merchant_snapshot: any;
-    address_snapshot: any;
-    bank_snapshot: any;
+    customer_snapshot: CustomerSnapshot;
+    merchant_snapshot: MerchantSnapshot;
+    address_snapshot: AddressSnapshot;
+    bank_snapshot: BankSnapshot | null;
     items: OrderItemData[];
     invoice: InvoiceData | null;
     status_events: StatusEvent[];
@@ -142,7 +174,7 @@ export interface StatusEvent {
 export interface PaymentProofData {
     id: number;
     status: 'submitted' | 'approved' | 'rejected';
-    original_name: string;
+    original_name: string | null;
     created_at: string;
     reviewed_at: string | null;
     rejection_reason: string | null;
@@ -163,6 +195,7 @@ export function formatRupiah(amount: number): string {
 
 export function formatDate(dateStr: string): string {
     return new Date(dateStr).toLocaleDateString('id-ID', {
+        timeZone: 'Asia/Jakarta',
         day: 'numeric',
         month: 'long',
         year: 'numeric',
@@ -170,7 +203,8 @@ export function formatDate(dateStr: string): string {
 }
 
 export function formatDateTime(dateStr: string): string {
-    return new Date(dateStr).toLocaleDateString('id-ID', {
+    return new Date(dateStr).toLocaleString('id-ID', {
+        timeZone: 'Asia/Jakarta',
         day: 'numeric',
         month: 'long',
         year: 'numeric',
