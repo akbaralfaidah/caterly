@@ -22,7 +22,7 @@ class CheckoutController extends Controller
         
         // Find cart
         $cart = Cart::where('customer_id', $customerId)
-            ->with(['merchant.user', 'items.menu.category', 'region'])
+            ->with(['merchant', 'items.menu.category', 'region'])
             ->first();
 
         if (!$cart || $cart->items->count() === 0) {
@@ -108,8 +108,8 @@ class CheckoutController extends Controller
                 ];
                 $merchantSnapshot = [
                     'name' => $cart->merchant->company_name,
-                    'phone' => $cart->merchant->phone,
-                    'address' => $cart->merchant->address,
+                    'phone' => $merchantProfile->phone ?? $cart->merchant->phone,
+                    'address' => $merchantProfile->address ?? '',
                 ];
                 $addressSnapshot = [
                     'label' => $address->label,
