@@ -2,6 +2,10 @@
 
 Caterly adalah marketplace katering korporat berbasis Laravel 13, Inertia.js 3, React 19, TypeScript, MySQL, dan Tailwind CSS 4.
 
+## Akses Aplikasi
+
+Caterly dapat diakses melalui [https://caterly.akbaralfaidah.com/](https://caterly.akbaralfaidah.com/).
+
 ## Persyaratan
 
 - PHP 8.3 beserta ekstensi Laravel
