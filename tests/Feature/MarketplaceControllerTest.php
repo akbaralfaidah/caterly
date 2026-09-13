@@ -39,7 +39,7 @@ class MarketplaceControllerTest extends TestCase
     public function test_customer_marketplace_only_lists_merchants_for_the_default_company_address(): void
     {
         $this->seed();
-        $customer = User::query()->where('email', 'nadia@caterly.test')->firstOrFail();
+        $customer = User::query()->where('email', 'faza@caterly.test')->firstOrFail();
         $jambi = Region::query()->where('code', 'JAMBI')->firstOrFail();
 
         $response = $this->actingAs($customer)->get('/marketplace');
@@ -56,7 +56,7 @@ class MarketplaceControllerTest extends TestCase
     public function test_customer_cannot_filter_marketplace_to_a_region_without_a_company_address(): void
     {
         $this->seed();
-        $customer = User::query()->where('email', 'nadia@caterly.test')->firstOrFail();
+        $customer = User::query()->where('email', 'faza@caterly.test')->firstOrFail();
         $jambi = Region::query()->where('code', 'JAMBI')->firstOrFail();
         $jakarta = Region::query()->where('code', 'JAKPUS')->firstOrFail();
 
@@ -94,7 +94,7 @@ class MarketplaceControllerTest extends TestCase
     public function test_customer_is_redirected_from_a_merchant_outside_their_address_region(): void
     {
         $this->seed();
-        $customer = User::query()->where('email', 'nadia@caterly.test')->firstOrFail();
+        $customer = User::query()->where('email', 'faza@caterly.test')->firstOrFail();
         $jambi = Region::query()->where('code', 'JAMBI')->firstOrFail();
         $jakartaMerchant = MerchantProfile::query()->where('company_name', 'Dapur Menteng')->firstOrFail();
 

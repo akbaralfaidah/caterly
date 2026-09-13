@@ -58,7 +58,7 @@ class DemoAccountsSeederTest extends TestCase
 
         $this->assertTrue(Hash::check(
             'CaterlyDemo123!',
-            User::query()->where('email', 'nadia@caterly.test')->value('password'),
+            User::query()->where('email', 'faza@caterly.test')->value('password'),
         ));
     }
 }

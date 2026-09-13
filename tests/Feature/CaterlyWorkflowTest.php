@@ -26,7 +26,7 @@ class CaterlyWorkflowTest extends TestCase
     public function test_role_middleware_forbids_access_to_the_other_role_area(): void
     {
         $this->seed();
-        $customer = User::query()->where('email', 'nadia@caterly.test')->firstOrFail();
+        $customer = User::query()->where('email', 'faza@caterly.test')->firstOrFail();
         $merchant = User::query()->where('email', 'dapur@caterly.test')->firstOrFail();
 
         $this->actingAs($customer)->get('/merchant/dashboard')->assertForbidden();
@@ -473,7 +473,7 @@ class CaterlyWorkflowTest extends TestCase
         $this->travelTo(Carbon::parse('2026-09-14 10:00:00', 'Asia/Jakarta'));
         $this->seed();
 
-        $customer = User::query()->where('email', 'nadia@caterly.test')->firstOrFail();
+        $customer = User::query()->where('email', 'faza@caterly.test')->firstOrFail();
         $merchant = User::query()->where('email', 'dapur@caterly.test')->firstOrFail();
         $address = CustomerAddress::query()->where('customer_id', $customer->id)->firstOrFail();
         $menu = Menu::query()->where('merchant_id', $merchant->id)->orderBy('id')->firstOrFail();

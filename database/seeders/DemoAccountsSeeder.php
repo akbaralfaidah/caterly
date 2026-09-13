@@ -293,7 +293,7 @@ class DemoAccountsSeeder extends Seeder
     {
         $customers = [
             [
-                'company_name' => 'PT Sinar Karya Nusantara', 'pic_name' => 'Nadia Pratama', 'email' => 'nadia@caterly.test', 'phone' => '081122334455',
+                'company_name' => 'PT Sinar Karya Nusantara', 'pic_name' => 'Faza Pratama', 'email' => 'faza@caterly.test', 'phone' => '081122334455',
                 'region_code' => 'JAMBI', 'label' => 'Kantor Pusat Jambi',
                 'address' => 'Jl. Jenderal Sudirman No. 100, Lantai 3, The Hok, Kota Jambi',
                 'notes' => 'Masuk dari lobi utama dan hubungi resepsionis lantai 3.',

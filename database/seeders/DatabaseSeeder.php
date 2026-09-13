@@ -230,8 +230,8 @@ class DatabaseSeeder extends Seeder
 
         // ===== Customer 1: PT Sinar Karya =====
         $customer1 = User::create([
-            'name' => 'Nadia',
-            'email' => 'nadia@caterly.test',
+            'name' => 'Faza',
+            'email' => 'faza@caterly.test',
             'password' => Hash::make('password1234'),
             'role' => 'customer',
             'company_name' => 'PT Sinar Karya',
@@ -241,7 +241,7 @@ class DatabaseSeeder extends Seeder
         CustomerProfile::create([
             'user_id' => $customer1->id,
             'company_name' => 'PT Sinar Karya',
-            'pic_name' => 'Nadia',
+            'pic_name' => 'Faza',
             'phone' => '081122334455',
         ]);
 
@@ -249,7 +249,7 @@ class DatabaseSeeder extends Seeder
             'customer_id' => $customer1->id,
             'region_id' => $jambiRegion->id,
             'label' => 'Kantor Pusat',
-            'receiver' => 'Nadia',
+            'receiver' => 'Fazza',
             'phone' => '081122334455',
             'address' => 'Jl. Jenderal Sudirman No. 100, Lantai 3, Kota Jambi',
             'notes' => 'Masuk dari lobby utama, lift ke lantai 3',

@@ -14,7 +14,7 @@ class CustomerAddressControllerTest extends TestCase
     public function test_selecting_the_current_default_address_keeps_it_as_default(): void
     {
         $this->seed();
-        $customer = User::query()->where('email', 'nadia@caterly.test')->firstOrFail();
+        $customer = User::query()->where('email', 'faza@caterly.test')->firstOrFail();
         $address = CustomerAddress::query()
             ->where('customer_id', $customer->id)
             ->where('is_default', true)

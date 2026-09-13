@@ -376,7 +376,7 @@ INSERT INTO categories (id, name, slug) VALUES
 INSERT INTO users (id, name, email, role, company_name, phone, password, created_at, updated_at) VALUES
 (1, 'Dapur Selaras', 'dapur@caterly.test', 'merchant', 'Dapur Selaras', '081234567890', '$2y$10$VrQjM.QSnd830rox2DUgae4Ow96WJ9FnHqtOnwOWEGD3LZN7uqRvu', NOW(), NOW()),
 (2, 'Sajian Ibu', 'sajian@caterly.test', 'merchant', 'Sajian Ibu', '082345678901', '$2y$10$VrQjM.QSnd830rox2DUgae4Ow96WJ9FnHqtOnwOWEGD3LZN7uqRvu', NOW(), NOW()),
-(3, 'Nadia', 'nadia@caterly.test', 'customer', 'PT Sinar Karya', '081122334455', '$2y$10$VrQjM.QSnd830rox2DUgae4Ow96WJ9FnHqtOnwOWEGD3LZN7uqRvu', NOW(), NOW()),
+(3, 'Faza', 'faza@caterly.test', 'customer', 'PT Sinar Karya', '081122334455', '$2y$10$VrQjM.QSnd830rox2DUgae4Ow96WJ9FnHqtOnwOWEGD3LZN7uqRvu', NOW(), NOW()),
 (4, 'Budi', 'budi@caterly.test', 'customer', 'CV Maju Bersama', '081566778899', '$2y$10$VrQjM.QSnd830rox2DUgae4Ow96WJ9FnHqtOnwOWEGD3LZN7uqRvu', NOW(), NOW());
 
 INSERT INTO merchant_profiles
@@ -385,7 +385,7 @@ INSERT INTO merchant_profiles
 (2, 2, 'Sajian Ibu', 'Jl. Kapten Pattimura No. 15, Kota Jambi', '082345678901', 'Masakan rumahan khas ibu dengan cita rasa otentik dan porsi mengenyangkan.', 'published', 15, 80, 'Bank Demo', 'UD Sajian Ibu', '0987654321 (DEMO)', NOW(), NOW());
 
 INSERT INTO customer_profiles (id, user_id, company_name, pic_name, phone, created_at, updated_at) VALUES
-(1, 3, 'PT Sinar Karya', 'Nadia', '081122334455', NOW(), NOW()),
+(1, 3, 'PT Sinar Karya', 'Faza', '081122334455', NOW(), NOW()),
 (2, 4, 'CV Maju Bersama', 'Budi', '081566778899', NOW(), NOW());
 
 INSERT INTO merchant_service_areas (id, merchant_id, region_id, delivery_fee, created_at, updated_at) VALUES
@@ -410,7 +410,7 @@ INSERT INTO menus
 
 INSERT INTO customer_addresses
 (id, customer_id, region_id, label, receiver, phone, address, notes, is_default, created_at, updated_at) VALUES
-(1, 3, 1, 'Kantor Pusat', 'Nadia', '081122334455', 'Jl. Jenderal Sudirman No. 100, Lantai 3, Kota Jambi', 'Masuk dari lobby utama, lift ke lantai 3', 1, NOW(), NOW()),
+(1, 3, 1, 'Kantor Pusat', 'Faza', '081122334455', 'Jl. Jenderal Sudirman No. 100, Lantai 3, Kota Jambi', 'Masuk dari lobby utama, lift ke lantai 3', 1, NOW(), NOW()),
 (2, 4, 1, 'Kantor Cabang', 'Budi', '081566778899', 'Jl. Hayam Wuruk No. 55, Kota Jambi', NULL, 1, NOW(), NOW());
 
 SET FOREIGN_KEY_CHECKS = 1;

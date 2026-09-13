@@ -69,7 +69,7 @@ Password seluruh akun: `CaterlyDemo123!`
 
 | Perusahaan | Email | Wilayah |
 |---|---|---|
-| PT Sinar Karya Nusantara | `nadia@caterly.test` | Kota Jambi |
+| PT Sinar Karya Nusantara | `faza@caterly.test` | Kota Jambi |
 | PT Cakrawala Digital Indonesia | `budi@caterly.test` | Jakarta Pusat |
 | PT Arunika Kreatif Mandiri | `sinta@caterly.test` | Jakarta Selatan |
 | CV Bandung Teknologi Bersama | `raka@caterly.test` | Kota Bandung |

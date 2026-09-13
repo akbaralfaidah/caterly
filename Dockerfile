@@ -91,10 +91,10 @@ RUN rm -f /etc/nginx/sites-enabled/default \
         bootstrap/cache \
     && chown -R www-data:www-data storage bootstrap/cache
 
-EXPOSE 8080
+EXPOSE 80
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
-    CMD curl --fail --silent http://127.0.0.1:8080/up > /dev/null || exit 1
+    CMD curl --fail --silent http://127.0.0.1/up > /dev/null || exit 1
 
 STOPSIGNAL SIGTERM
 
