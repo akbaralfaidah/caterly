@@ -7,13 +7,13 @@ export default function GuestLayout({ children }: { children: ReactNode }) {
     const { auth } = usePage<PageProps>().props;
 
     return (
-        <div className="min-h-screen bg-white">
-            <header className="glass sticky top-0 z-50 border-b border-white/20 shadow-sm">
-                <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-                    <Link href="/marketplace" className="flex items-center gap-2">
-                        <img src="/img/logo-caterly.svg" alt="Caterly" className="h-8" />
+        <div className="min-h-screen overflow-x-clip bg-white">
+            <header className="glass sticky top-0 z-50 border-b border-white/40 shadow-[0_8px_30px_rgba(17,23,30,0.05)]">
+                <div className="mx-auto flex h-16 min-w-0 max-w-[1440px] items-center justify-between gap-3 px-4 sm:h-[72px] sm:px-6 lg:px-8">
+                    <Link href="/marketplace" className="flex shrink-0 items-center gap-2 transition hover:scale-[1.03]">
+                        <img src="/img/logo-caterly.svg" alt="Caterly" className="h-8 sm:h-9" />
                     </Link>
-                    <nav className="flex items-center gap-3 sm:gap-6 text-[15px]">
+                    <nav className="flex min-w-0 items-center gap-3 text-[15px] sm:gap-6">
                         <Link href="/marketplace" className="hidden sm:block text-text-secondary hover:text-text-primary font-medium">
                             Cari Katering
                         </Link>
@@ -36,12 +36,14 @@ export default function GuestLayout({ children }: { children: ReactNode }) {
                                 </div>
                             </>
                         ) : (
-                            <div className="flex items-center gap-3">
-                                <Link href="/login" className="text-text-secondary hover:text-text-primary font-semibold transition-colors">
+                            <div className="flex min-w-0 items-center gap-2 sm:gap-5">
+                                <a href="/marketplace#cara-kerja" className="hidden font-semibold text-text-secondary transition hover:text-primary lg:block">Cara kerja</a>
+                                <a href="/marketplace#untuk-katering" className="hidden font-semibold text-text-secondary transition hover:text-primary lg:block">Untuk katering</a>
+                                <Link href="/login" className="font-semibold text-text-secondary transition-colors hover:text-text-primary">
                                     Masuk
                                 </Link>
-                                <Link href="/register" className="bg-primary hover:bg-primary-dark text-white px-4 py-2 rounded-xl font-bold transition-all shadow-[0_4px_14px_0_rgba(1,96,57,0.39)]">
-                                    Daftar
+                                <Link href="/register" className="rounded-xl bg-primary px-4 py-2 font-bold text-white shadow-[0_7px_20px_rgba(1,96,57,0.28)] transition-all hover:-translate-y-0.5 hover:bg-primary-dark sm:px-5 sm:py-2.5">
+                                    <span className="sm:hidden">Daftar</span><span className="hidden sm:inline">Daftar gratis</span>
                                 </Link>
                             </div>
                         )}
