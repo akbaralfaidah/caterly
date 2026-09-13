@@ -12,9 +12,11 @@ use App\Models\Notification;
 use App\Models\Order;
 use App\Models\PaymentProof;
 use App\Support\OrderLifecycle;
+use Closure;
 use DomainException;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -158,7 +160,35 @@ class OrderController extends Controller
         $this->ensureOwner($request, $order);
         $validated = $request->validate([
             'amount_idr' => ['required', 'integer', 'min:1'],
-            'proof' => ['required', 'file', 'mimes:jpg,jpeg,png,webp,pdf', 'extensions:jpg,jpeg,png,webp,pdf', 'max:5120'],
+            'proof' => [
+                'required',
+                'file',
+                'image',
+                'mimetypes:image/jpeg,image/png',
+                'mimes:jpg,jpeg,png',
+                'extensions:jpg,jpeg,png',
+                'max:5120',
+                static function (string $attribute, mixed $value, Closure $fail): void {
+                    if (! $value instanceof UploadedFile) {
+                        return;
+                    }
+
+                    $imageInfo = @getimagesize($value->getRealPath());
+                    $imageType = $imageInfo[2] ?? null;
+
+                    if (! in_array($imageType, [IMAGETYPE_JPEG, IMAGETYPE_PNG], true)) {
+                        $fail('Bukti pembayaran wajib berupa foto JPG, JPEG, atau PNG.');
+                    }
+                },
+            ],
+        ], [
+            'proof.required' => 'Foto bukti pembayaran wajib diunggah.',
+            'proof.file' => 'Bukti pembayaran wajib berupa file gambar.',
+            'proof.image' => 'Bukti pembayaran wajib berupa foto JPG, JPEG, atau PNG.',
+            'proof.mimetypes' => 'Bukti pembayaran wajib berupa foto JPG, JPEG, atau PNG.',
+            'proof.mimes' => 'Bukti pembayaran wajib berupa foto JPG, JPEG, atau PNG.',
+            'proof.extensions' => 'Ekstensi bukti pembayaran harus .jpg, .jpeg, atau .png.',
+            'proof.max' => 'Ukuran foto bukti pembayaran maksimal 5 MB.',
         ]);
 
         $path = null;

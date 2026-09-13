@@ -15,7 +15,7 @@ router.on('success', (event) => {
 const pages = import.meta.glob<{ default: ComponentType }>('./Pages/**/*.tsx');
 
 createInertiaApp<PageProps>({
-    title: (title) => title ? `${title} — Caterly` : 'Caterly',
+    title: (title) => title ? `${title} - Caterly` : 'Caterly',
     resolve: (name) => {
         const page = pages[`./Pages/${name}.tsx`];
         if (!page) throw new Error(`Halaman Inertia tidak ditemukan: ${name}`);

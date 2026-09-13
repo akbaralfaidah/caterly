@@ -15,6 +15,7 @@ use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Storage;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
 class CaterlyWorkflowTest extends TestCase
@@ -161,8 +162,11 @@ class CaterlyWorkflowTest extends TestCase
         $this->assertDatabaseCount('order_status_events', 2);
     }
 
-    public function test_payment_proof_pdf_can_be_approved_by_the_order_merchant(): void
-    {
+    #[DataProvider('allowedPaymentProofImages')]
+    public function test_payment_proof_jpeg_or_png_can_be_approved_by_the_order_merchant(
+        string $fileName,
+        string $mimeType,
+    ): void {
         Storage::fake('local');
         [$customer, $merchant, $address] = $this->arrangeCart();
         $this->actingAs($customer)->post('/customer/checkout', [
@@ -174,7 +178,7 @@ class CaterlyWorkflowTest extends TestCase
 
         $this->actingAs($customer)->post("/customer/orders/{$order->id}/payment", [
             'amount_idr' => 152500,
-            'proof' => UploadedFile::fake()->create('transfer.pdf', 100, 'application/pdf'),
+            'proof' => UploadedFile::fake()->image($fileName),
         ])->assertSessionHas('success');
 
         $proof = PaymentProof::query()->sole();
@@ -182,6 +186,7 @@ class CaterlyWorkflowTest extends TestCase
         $this->assertSame('pending_review', $order->refresh()->payment_status);
         $this->assertSame($customer->id, $proof->submitted_by);
         $this->assertSame(152500, $proof->amount_idr);
+        $this->assertSame($mimeType, $proof->mime_type);
 
         $this->actingAs($merchant)->post("/merchant/orders/{$order->id}/payment/approve")
             ->assertSessionHas('success');
@@ -193,6 +198,83 @@ class CaterlyWorkflowTest extends TestCase
             'user_id' => $customer->id,
             'event_key' => "order:{$order->id}:payment:approved:{$proof->id}",
         ]);
+    }
+
+    public static function allowedPaymentProofImages(): array
+    {
+        return [
+            'JPEG' => ['transfer.jpg', 'image/jpeg'],
+            'PNG' => ['transfer.png', 'image/png'],
+        ];
+    }
+
+    public function test_payment_proof_pdf_is_rejected(): void
+    {
+        Storage::fake('local');
+        [$customer, $merchant, $address] = $this->arrangeCart();
+        $this->actingAs($customer)->post('/customer/checkout', [
+            'address_id' => $address->id,
+            'checkout_token' => '15151515-1515-4151-8151-151515151515',
+        ]);
+        $order = Order::query()->sole();
+        $this->actingAs($merchant)->post("/merchant/orders/{$order->id}/accept");
+
+        $response = $this->actingAs($customer)->post("/customer/orders/{$order->id}/payment", [
+            'amount_idr' => 152500,
+            'proof' => UploadedFile::fake()->create('transfer.pdf', 100, 'application/pdf'),
+        ]);
+
+        $response->assertSessionHasErrors([
+            'proof' => 'Bukti pembayaran wajib berupa foto JPG, JPEG, atau PNG.',
+        ]);
+        $this->assertDatabaseCount('payment_proofs', 0);
+        $this->assertSame('unpaid', $order->refresh()->payment_status);
+    }
+
+    public function test_payment_proof_webp_image_is_rejected(): void
+    {
+        Storage::fake('local');
+        [$customer, $merchant, $address] = $this->arrangeCart();
+        $this->actingAs($customer)->post('/customer/checkout', [
+            'address_id' => $address->id,
+            'checkout_token' => '17171717-1717-4171-8171-171717171717',
+        ]);
+        $order = Order::query()->sole();
+        $this->actingAs($merchant)->post("/merchant/orders/{$order->id}/accept");
+
+        $response = $this->actingAs($customer)->post("/customer/orders/{$order->id}/payment", [
+            'amount_idr' => 152500,
+            'proof' => UploadedFile::fake()->image('transfer.webp'),
+        ]);
+
+        $response->assertSessionHasErrors([
+            'proof' => 'Bukti pembayaran wajib berupa foto JPG, JPEG, atau PNG.',
+        ]);
+        $this->assertDatabaseCount('payment_proofs', 0);
+        $this->assertSame('unpaid', $order->refresh()->payment_status);
+    }
+
+    public function test_non_image_file_disguised_as_jpeg_is_rejected(): void
+    {
+        Storage::fake('local');
+        [$customer, $merchant, $address] = $this->arrangeCart();
+        $this->actingAs($customer)->post('/customer/checkout', [
+            'address_id' => $address->id,
+            'checkout_token' => '16161616-1616-4161-8161-161616161616',
+        ]);
+        $order = Order::query()->sole();
+        $this->actingAs($merchant)->post("/merchant/orders/{$order->id}/accept");
+
+        $response = $this->actingAs($customer)->post("/customer/orders/{$order->id}/payment", [
+            'amount_idr' => 152500,
+            'proof' => UploadedFile::fake()->createWithContent('transfer.jpg', '<?php echo "malicious";'),
+        ]);
+
+        $response->assertSessionHasErrors([
+            'proof' => 'Bukti pembayaran wajib berupa foto JPG, JPEG, atau PNG.',
+        ]);
+        $this->assertDatabaseCount('payment_proofs', 0);
+        $this->assertSame('unpaid', $order->refresh()->payment_status);
     }
 
     public function test_payment_proof_below_fifty_percent_deposit_is_rejected(): void
@@ -208,7 +290,7 @@ class CaterlyWorkflowTest extends TestCase
 
         $response = $this->actingAs($customer)->post("/customer/orders/{$order->id}/payment", [
             'amount_idr' => 152499,
-            'proof' => UploadedFile::fake()->create('dp-kurang.pdf', 100, 'application/pdf'),
+            'proof' => UploadedFile::fake()->image('dp-kurang.png'),
         ]);
 
         $response->assertSessionHasErrors([
@@ -235,7 +317,7 @@ class CaterlyWorkflowTest extends TestCase
         $this->assertSame('accepted', $order->refresh()->order_status);
     }
 
-    public function test_verified_fifty_percent_deposit_allows_merchant_to_prepare_order(): void
+    public function test_verified_fifty_percent_deposit_allows_merchant_to_prepare_before_delivery_date(): void
     {
         Storage::fake('local');
         [$customer, $merchant, $address] = $this->arrangeCart();
@@ -247,15 +329,39 @@ class CaterlyWorkflowTest extends TestCase
         $this->actingAs($merchant)->post("/merchant/orders/{$order->id}/accept");
         $this->actingAs($customer)->post("/customer/orders/{$order->id}/payment", [
             'amount_idr' => 152500,
-            'proof' => UploadedFile::fake()->create('dp-lima-puluh-persen.pdf', 100, 'application/pdf'),
+            'proof' => UploadedFile::fake()->image('dp-lima-puluh-persen.jpg'),
         ]);
         $this->actingAs($merchant)->post("/merchant/orders/{$order->id}/payment/approve");
-        $this->travelTo(Carbon::parse('2026-09-16 09:00:00', 'Asia/Jakarta'));
 
         $response = $this->actingAs($merchant)->post("/merchant/orders/{$order->id}/prepare");
 
         $response->assertSessionHas('success', 'Status diubah ke Dipersiapkan.');
         $this->assertSame('preparing', $order->refresh()->order_status);
+    }
+
+    public function test_prepared_order_can_be_sent_before_delivery_date(): void
+    {
+        Storage::fake('local');
+        [$customer, $merchant, $address] = $this->arrangeCart();
+        $this->actingAs($customer)->post('/customer/checkout', [
+            'address_id' => $address->id,
+            'checkout_token' => '18181818-1818-4181-8181-181818181818',
+        ]);
+        $order = Order::query()->sole();
+        $this->actingAs($merchant)->post("/merchant/orders/{$order->id}/accept");
+        $this->actingAs($customer)->post("/customer/orders/{$order->id}/payment", [
+            'amount_idr' => 152500,
+            'proof' => UploadedFile::fake()->image('bukti-pengiriman-dini.png'),
+        ]);
+        $this->actingAs($merchant)->post("/merchant/orders/{$order->id}/payment/approve");
+        $this->actingAs($merchant)->post("/merchant/orders/{$order->id}/prepare");
+
+        $response = $this->actingAs($merchant)->post("/merchant/orders/{$order->id}/deliver");
+
+        $response->assertSessionHas('success', 'Status diubah ke Dikirim.');
+        $this->assertSame('delivering', $order->refresh()->order_status);
+        $this->assertSame('2026-09-14', today()->toDateString());
+        $this->assertSame('2026-09-16', $order->delivery_date->toDateString());
     }
 
     public function test_expiration_job_releases_capacity_and_voids_invoice(): void

@@ -3,6 +3,7 @@ import GuestLayout from '@/Layouts/GuestLayout';
 import { useInteractiveDialog } from '@/Components/InteractiveDialog';
 import { PageProps, OrderData, ORDER_STATUS_LABELS, PAYMENT_STATUS_LABELS, formatRupiah, formatDateTime, formatDate } from '@/types';
 import { FormEvent, useRef } from 'react';
+import toast from 'react-hot-toast';
 
 interface Props extends PageProps {
     order: OrderData;
@@ -16,7 +17,7 @@ export default function OrderDetail({ order }: Props) {
     const rejectedProofs = paymentProofs.filter((proof) => proof.status === 'rejected');
     const minimumDeposit = Math.ceil(order.total_idr / 2);
     
-    const { data, setData, post, processing, errors } = useForm({
+    const { data, setData, post, processing, errors, clearErrors } = useForm({
         amount_idr: minimumDeposit.toString(),
         proof: null as File | null,
     });
@@ -66,6 +67,24 @@ export default function OrderDetail({ order }: Props) {
         post(`/customer/orders/${order.id}/payment`, {
             preserveScroll: true,
         });
+    };
+
+    const selectPaymentProof = (file: File | null) => {
+        const hasAllowedMimeType = file === null || ['image/jpeg', 'image/png'].includes(file.type);
+        const hasAllowedExtension = file === null || /\.(jpe?g|png)$/i.test(file.name);
+
+        if (!hasAllowedMimeType || !hasAllowedExtension) {
+            setData('proof', null);
+            if (fileInputRef.current) {
+                fileInputRef.current.value = '';
+            }
+            toast.error('Bukti pembayaran hanya boleh berupa foto JPG, JPEG, atau PNG.');
+
+            return;
+        }
+
+        clearErrors('proof');
+        setData('proof', file);
     };
 
     return (
@@ -222,11 +241,12 @@ export default function OrderDetail({ order }: Props) {
                                                 <input
                                                     type="file"
                                                     ref={fileInputRef}
-                                                    onChange={e => setData('proof', e.target.files?.[0] || null)}
+                                                    onChange={e => selectPaymentProof(e.target.files?.[0] || null)}
                                                     className="w-full text-sm file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-primary-light file:text-primary hover:file:bg-primary/20"
-                                                    accept=".jpg,.jpeg,.png,.webp,.pdf,image/jpeg,image/png,image/webp,application/pdf"
+                                                    accept=".jpg,.jpeg,.png,image/jpeg,image/png"
                                                     required
                                                 />
+                                                <p className="mt-1.5 text-xs text-text-secondary">Hanya foto JPG, JPEG, atau PNG. Dokumen dan PDF akan ditolak. Maksimal 5 MB.</p>
                                                 {errors.proof && <p className="text-error text-xs mt-1">{errors.proof}</p>}
                                             </div>
 

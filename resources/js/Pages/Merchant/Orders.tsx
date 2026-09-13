@@ -102,19 +102,25 @@ export default function Orders({ orders }: Props) {
             ) : (
                 <div className="space-y-5">
                     {orders.data.map(order => (
-                        <div key={order.id} className="bg-white border border-border rounded-xl shadow-sm overflow-hidden flex flex-col lg:flex-row">
-                            <div className="flex-1 p-5 border-b lg:border-b-0 lg:border-r border-border">
-                                <div className="flex flex-wrap justify-between items-start gap-4 mb-4">
-                                    <div>
-                                        <div className="flex items-center gap-2 mb-1">
-                                            <span className="font-bold text-text-primary">{order.customer_snapshot?.company_name || 'Pelanggan'}</span>
-                                            <span className={`text-xs font-bold px-2 py-0.5 rounded border ${getStatusColor(order.order_status)}`}>
-                                                {ORDER_STATUS_LABELS[order.order_status]}
-                                            </span>
-                                        </div>
+                        <div key={order.id} className="overflow-hidden rounded-xl border border-border bg-white shadow-sm">
+                            <div className="flex items-center justify-between gap-3 border-b border-border bg-surface/50 px-4 py-3 sm:px-5">
+                                <p className="text-xs font-bold uppercase tracking-[0.12em] text-text-secondary">Status Pesanan</p>
+                                <span className={`inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-1 text-xs font-bold ${getStatusColor(order.order_status)}`}>
+                                    {order.order_status === 'pending_confirmation' && (
+                                        <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-current" aria-hidden="true" />
+                                    )}
+                                    {ORDER_STATUS_LABELS[order.order_status]}
+                                </span>
+                            </div>
+
+                            <div className="flex flex-col lg:flex-row">
+                                <div className="flex-1 border-b border-border p-5 lg:border-r lg:border-b-0">
+                                    <div className="mb-4 grid items-start gap-4 sm:grid-cols-[minmax(0,1fr)_auto]">
+                                        <div className="min-w-0">
+                                            <p className="mb-1 break-words font-bold text-text-primary">{order.customer_snapshot?.company_name || 'Pelanggan'}</p>
                                         <p className="text-sm text-text-secondary">PIC: {order.customer_snapshot?.name} ({order.customer_snapshot?.phone})</p>
                                     </div>
-                                    <div className="text-right flex flex-col items-end gap-1">
+                                        <div className="flex flex-col items-start gap-1 text-left sm:items-end sm:text-right">
                                         <a 
                                             href={`/merchant/orders/${order.id}/invoice`} 
                                             target="_blank" 
@@ -247,6 +253,7 @@ export default function Orders({ orders }: Props) {
                                         </div>
                                     </div>
                                 )}
+                                </div>
                             </div>
                         </div>
                     ))}

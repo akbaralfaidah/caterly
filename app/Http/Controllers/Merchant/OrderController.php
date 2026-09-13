@@ -114,10 +114,6 @@ class OrderController extends Controller
             return back()->with('error', 'DP minimum 50% belum diverifikasi.');
         }
 
-        if ($order->delivery_date->isFuture()) {
-            return back()->with('error', 'Pesanan baru dapat disiapkan pada tanggal pengiriman.');
-        }
-
         return $this->runTransition(
             $lifecycle,
             $order,
@@ -132,10 +128,6 @@ class OrderController extends Controller
     public function deliver(Request $request, Order $order, OrderLifecycle $lifecycle): RedirectResponse
     {
         $this->ensureOwner($request, $order);
-
-        if ($order->delivery_date->isFuture()) {
-            return back()->with('error', 'Pesanan baru dapat dikirim pada tanggal pengiriman.');
-        }
 
         return $this->runTransition(
             $lifecycle,
@@ -183,7 +175,7 @@ class OrderController extends Controller
             return back()->with('error', $exception->getMessage());
         }
 
-        return back()->with('success', 'DP/pembayaran diterima. Pesanan dapat diproses pada tanggal pengiriman.');
+        return back()->with('success', 'DP/pembayaran diterima. Pesanan dapat segera disiapkan.');
     }
 
     public function rejectPayment(Request $request, Order $order): RedirectResponse
