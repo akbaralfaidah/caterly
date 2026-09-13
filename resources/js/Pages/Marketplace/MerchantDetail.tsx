@@ -1,7 +1,7 @@
 import { Head, Link, router } from '@inertiajs/react';
 import GuestLayout from '@/Layouts/GuestLayout';
 import { useInteractiveDialog } from '@/Components/InteractiveDialog';
-import { PageProps, MenuItem, Region, CartData } from '@/types';
+import { PageProps, MenuItem, Region, CartData, deliveryDateInputValue, menuImageUrl } from '@/types';
 import { useState } from 'react';
 import { MapPin, Clock, Calendar, Utensils, Minus, Plus, ShoppingCart, Info, Store, Users } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -159,8 +159,8 @@ export default function MerchantDetail({ auth, merchant, menus, cart, selected_r
                                     type="date"
                                     value={selectedDate}
                                     onChange={e => setSelectedDate(e.target.value)}
-                                    min={new Date(Date.now() + 86400000).toISOString().split('T')[0]}
-                                    max={new Date(Date.now() + 30 * 86400000).toISOString().split('T')[0]}
+                                    min={deliveryDateInputValue()}
+                                    max={deliveryDateInputValue(30)}
                                     className="px-4 py-3 rounded-xl border border-border bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors outline-none min-w-[200px]"
                                 />
                             </div>
@@ -178,9 +178,13 @@ export default function MerchantDetail({ auth, merchant, menus, cart, selected_r
                                         <div key={menu.id} className="bg-white rounded-2xl p-4 border border-border hover:shadow-md transition-shadow flex gap-4">
                                             <div className="w-24 h-24 rounded-xl bg-gray-100 overflow-hidden shrink-0">
                                                 <img 
-                                                    src={menu.image_path ? `/storage/${menu.image_path}` : `https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=200&q=80`} 
+                                                    src={menuImageUrl(menu.image_path)}
                                                     alt={menu.name}
                                                     className="w-full h-full object-cover"
+                                                    onError={(event) => {
+                                                        event.currentTarget.onerror = null;
+                                                        event.currentTarget.src = menuImageUrl(null);
+                                                    }}
                                                 />
                                             </div>
                                             <div className="flex-1 flex flex-col">

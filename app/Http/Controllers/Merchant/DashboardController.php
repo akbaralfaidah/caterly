@@ -37,7 +37,7 @@ class DashboardController extends Controller
                 'today_production' => Order::query()
                     ->where('merchant_id', $merchantId)
                     ->whereDate('delivery_date', today())
-                    ->where('payment_status', 'paid')
+                    ->withVerifiedDeposit()
                     ->whereIn('order_status', ['accepted', 'preparing', 'delivering', 'completed'])
                     ->sum('total_portions'),
             ],
@@ -55,7 +55,7 @@ class DashboardController extends Controller
         $orders = Order::query()
             ->where('merchant_id', $request->user()->id)
             ->whereDate('delivery_date', $date)
-            ->where('payment_status', 'paid')
+            ->withVerifiedDeposit()
             ->whereIn('order_status', ['accepted', 'preparing', 'delivering', 'completed'])
             ->with('items')
             ->orderBy('order_number')
@@ -65,7 +65,7 @@ class DashboardController extends Controller
             ->whereHas('order', fn ($query) => $query
                 ->where('merchant_id', $request->user()->id)
                 ->whereDate('delivery_date', $date)
-                ->where('payment_status', 'paid')
+                ->withVerifiedDeposit()
                 ->whereIn('order_status', ['accepted', 'preparing', 'delivering', 'completed']))
             ->selectRaw('menu_name_snapshot, category_snapshot, SUM(quantity) AS total_quantity')
             ->groupBy('menu_name_snapshot', 'category_snapshot')

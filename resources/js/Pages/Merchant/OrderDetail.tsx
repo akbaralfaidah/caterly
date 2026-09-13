@@ -49,6 +49,11 @@ export default function OrderDetail({ order }: Props) {
     };
 
     const submittedProof = order.payment_proofs?.find(proof => proof.status === 'submitted');
+    const approvedAmount = order.payment_proofs
+        ?.filter(proof => proof.status === 'approved')
+        .reduce((total, proof) => total + proof.amount_idr, 0) ?? 0;
+    const remainingAmount = Math.max(0, order.total_idr - approvedAmount);
+    const hasVerifiedDeposit = approvedAmount >= Math.ceil(order.total_idr / 2);
 
     return (
         <MerchantLayout title="Detail Pesanan">
@@ -111,13 +116,27 @@ export default function OrderDetail({ order }: Props) {
                         {order.notes && <p className="mt-3 rounded-lg bg-surface p-3 text-sm">Catatan: {order.notes}</p>}
                     </div>
 
+                    <div className="rounded-xl border border-border bg-white p-5">
+                        <div className="flex items-center justify-between gap-3">
+                            <h3 className="font-bold">Progres Pembayaran</h3>
+                            <span className="text-sm font-extrabold text-primary">{Math.round((approvedAmount / order.total_idr) * 100)}%</span>
+                        </div>
+                        <div className="mt-3 h-2 overflow-hidden rounded-full bg-border">
+                            <div className="h-full rounded-full bg-primary" style={{ width: `${Math.min(100, (approvedAmount / order.total_idr) * 100)}%` }} />
+                        </div>
+                        <div className="mt-3 flex justify-between gap-3 text-xs text-text-secondary">
+                            <span>Terverifikasi {formatRupiah(approvedAmount)}</span>
+                            <span>Sisa {formatRupiah(remainingAmount)}</span>
+                        </div>
+                    </div>
+
                     {submittedProof && (
                         <div className="rounded-xl border border-border bg-white p-5">
                             <h3 className="mb-3 font-bold">Bukti Pembayaran</h3>
                             <div className="mb-3 rounded-lg bg-primary-light p-3">
                                 <p className="text-xs font-bold uppercase tracking-wide text-primary">Nominal transfer</p>
                                 <p className="mt-1 text-xl font-extrabold tabular-nums">{formatRupiah(submittedProof.amount_idr)}</p>
-                                <p className="text-xs text-text-secondary">Minimum DP yang diwajibkan adalah 50% dari total pesanan.</p>
+                                <p className="text-xs text-text-secondary">{approvedAmount > 0 ? 'Periksa nominal dan keaslian bukti sebelum menyetujui.' : 'Minimum DP yang diwajibkan adalah 50% dari total pesanan.'}</p>
                             </div>
                             <a href={'/merchant/payment-proof/' + submittedProof.id} target="_blank" rel="noreferrer" className="block rounded-lg bg-primary-light px-4 py-2 text-center text-sm font-bold text-primary">
                                 Lihat {submittedProof.original_name || 'bukti'}
@@ -134,8 +153,13 @@ export default function OrderDetail({ order }: Props) {
                             <button onClick={() => confirmPost('accept', 'Terima pesanan?', 'Pelanggan akan mendapat notifikasi untuk melanjutkan pembayaran.', 'Terima pesanan', 'success')} className="rounded-lg bg-primary py-2 font-bold text-white">Terima pesanan</button>
                             <button onClick={() => askReason('reject', 'Tolak pesanan?', 'Jelaskan alasan penolakan agar pelanggan dapat memahami keputusan Anda.', 'Tolak pesanan')} className="rounded-lg border border-error py-2 font-bold text-error">Tolak pesanan</button>
                         </>}
-                        {order.order_status === 'accepted' && order.payment_status === 'paid' && <button onClick={() => confirmPost('prepare', 'Mulai produksi?', 'DP minimum 50% sudah terverifikasi. Status pesanan akan berubah menjadi sedang dipersiapkan.', 'Mulai produksi')} className="rounded-lg bg-primary py-2 font-bold text-white">Mulai produksi</button>}
-                        {order.order_status === 'preparing' && <button onClick={() => confirmPost('deliver', 'Kirim pesanan?', 'Pastikan seluruh pesanan lengkap sebelum memulai pengiriman.', 'Mulai pengiriman')} className="rounded-lg bg-primary py-2 font-bold text-white">Kirim pesanan</button>}
+                        {order.order_status === 'accepted' && hasVerifiedDeposit && <button onClick={() => confirmPost('prepare', 'Mulai produksi?', 'DP minimum 50% sudah terverifikasi. Status pesanan akan berubah menjadi sedang dipersiapkan.', 'Mulai produksi')} className="rounded-lg bg-primary py-2 font-bold text-white">Mulai produksi</button>}
+                        {order.order_status === 'preparing' && order.payment_status === 'paid' && <button onClick={() => confirmPost('deliver', 'Kirim pesanan?', 'Pembayaran sudah lunas. Pastikan seluruh pesanan lengkap sebelum memulai pengiriman.', 'Mulai pengiriman')} className="rounded-lg bg-primary py-2 font-bold text-white">Kirim pesanan</button>}
+                        {order.order_status === 'preparing' && order.payment_status !== 'paid' && (
+                            <div className="rounded-lg border border-accent/40 bg-accent-light p-3 text-center text-sm font-semibold text-accent-dark">
+                                Menunggu pelunasan 100% diverifikasi sebelum pesanan dapat dikirim.
+                            </div>
+                        )}
                         {order.order_status === 'accepted' && order.payment_status === 'unpaid' && <button onClick={() => askReason('cancel', 'Batalkan pesanan?', 'Pembatalan akan melepas kapasitas dan memberi tahu pelanggan.', 'Batalkan pesanan')} className="rounded-lg border border-error py-2 font-bold text-error">Batalkan pesanan</button>}
                     </div>
                 </aside>

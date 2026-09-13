@@ -90,9 +90,12 @@ class CartController extends Controller
         $validated = $request->validate([
             'menu_id' => ['required', 'integer', 'exists:menus,id'],
             'quantity' => ['required', 'integer', 'min:1', 'max:10000'],
-            'delivery_date' => ['required', 'date', 'after:today', 'before_or_equal:'.today()->addDays(30)->toDateString()],
+            'delivery_date' => ['required', 'date', 'after_or_equal:today', 'before_or_equal:'.today()->addDays(30)->toDateString()],
             'region_id' => ['required', 'integer', 'exists:regions,id'],
             'replace_cart' => ['sometimes', 'boolean'],
+        ], [
+            'delivery_date.after_or_equal' => 'Tanggal pengiriman paling cepat hari ini.',
+            'delivery_date.before_or_equal' => 'Tanggal pengiriman maksimal 30 hari ke depan.',
         ]);
 
         $menu = Menu::query()->with('merchantProfile')->findOrFail($validated['menu_id']);

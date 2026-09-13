@@ -1,7 +1,7 @@
 ﻿import { Head, useForm, router } from '@inertiajs/react';
 import MerchantLayout from '@/Layouts/MerchantLayout';
 import { useInteractiveDialog } from '@/Components/InteractiveDialog';
-import { PageProps, MenuItem, Category, formatRupiah } from '@/types';
+import { PageProps, MenuItem, Category, formatRupiah, menuImageUrl } from '@/types';
 import { useState, useRef, FormEvent } from 'react';
 
 interface Props extends PageProps {
@@ -53,6 +53,22 @@ export default function Menus({ menus, categories }: Props) {
         setIsModalOpen(false);
         reset();
         setEditingMenu(null);
+    };
+
+    const selectImage = (file: File | null) => {
+        const hasAllowedMimeType = file === null || ['image/jpeg', 'image/png', 'image/webp'].includes(file.type);
+        const hasAllowedExtension = file === null || /\.(jpe?g|png|webp)$/i.test(file.name);
+
+        if (!hasAllowedMimeType || !hasAllowedExtension) {
+            setData('image', null);
+            if (fileInputRef.current) fileInputRef.current.value = '';
+            toast.error('Foto menu hanya boleh berformat JPG, JPEG, PNG, atau WebP.');
+
+            return;
+        }
+
+        clearErrors('image');
+        setData('image', file);
     };
 
     const submit = (e: FormEvent) => {
@@ -120,11 +136,15 @@ export default function Menus({ menus, categories }: Props) {
                     {menus.map((menu) => (
                         <div key={menu.id} className="bg-white border border-border rounded-xl overflow-hidden hover:shadow-md transition-shadow group flex flex-col">
                             <div className="aspect-video bg-surface relative">
-                                {menu.image_path ? (
-                                    <img src={`/storage/${menu.image_path}`} alt={menu.name} className={`w-full h-full object-cover ${!menu.is_active && 'grayscale opacity-60'}`} />
-                                ) : (
-                                    <div className="w-full h-full flex items-center justify-center text-3xl bg-primary-light">🍱</div>
-                                )}
+                                <img
+                                    src={menuImageUrl(menu.image_path)}
+                                    alt={menu.name}
+                                    className={`h-full w-full object-cover ${!menu.is_active ? 'grayscale opacity-60' : ''}`}
+                                    onError={(event) => {
+                                        event.currentTarget.onerror = null;
+                                        event.currentTarget.src = menuImageUrl(null);
+                                    }}
+                                />
                                 <div className="absolute top-3 left-3">
                                     <span className="bg-white/90 backdrop-blur-sm text-xs font-semibold px-2 py-1 rounded-md text-text-primary shadow-sm">
                                         {menu.category}
@@ -249,14 +269,14 @@ export default function Menus({ menus, categories }: Props) {
                                                 Foto dipilih
                                             </div>
                                         ) : editingMenu?.image_path ? (
-                                            <img src={`/storage/${editingMenu.image_path}`} alt="Preview" className="h-12 w-16 object-cover rounded border border-border" />
+                                            <img src={menuImageUrl(editingMenu.image_path)} alt="Preview" className="h-12 w-16 object-cover rounded border border-border" />
                                         ) : null}
                                         <input
                                             type="file"
                                             ref={fileInputRef}
-                                            onChange={(e) => setData('image', e.target.files?.[0] || null)}
+                                            onChange={(e) => selectImage(e.target.files?.[0] || null)}
                                             className="text-sm text-text-secondary file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-primary-light file:text-primary hover:file:bg-primary/20"
-                                            accept="image/*"
+                                            accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"
                                         />
                                     </div>
                                     {errors.image && <p className="text-error text-sm mt-1">{errors.image}</p>}

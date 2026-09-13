@@ -45,8 +45,10 @@ class MenuController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
-        $validated = $request->validate($this->rules(imageRequired: true));
-        $path = $request->file('image')->store('menus', 'public');
+        $validated = $request->validate($this->rules(), $this->messages());
+        $path = $request->hasFile('image')
+            ? $request->file('image')->store('menus', 'public')
+            : null;
 
         Menu::query()->create([
             'merchant_id' => $request->user()->id,
@@ -71,7 +73,7 @@ class MenuController extends Controller
     public function update(Request $request, Menu $menu): RedirectResponse
     {
         $this->ensureOwner($request, $menu);
-        $validated = $request->validate($this->rules(imageRequired: false));
+        $validated = $request->validate($this->rules(), $this->messages());
         $oldImagePath = $menu->image_path;
 
         $menu->fill([
@@ -114,14 +116,27 @@ class MenuController extends Controller
     /**
      * @return array<string, list<string>>
      */
-    private function rules(bool $imageRequired): array
+    private function rules(): array
     {
         return [
             'name' => ['required', 'string', 'max:100'],
             'description' => ['required', 'string', 'max:1000'],
             'price_idr' => ['required', 'integer', 'min:1', 'max:10000000'],
             'category_id' => ['required', 'integer', 'exists:categories,id'],
-            'image' => [$imageRequired ? 'required' : 'nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'extensions:jpg,jpeg,png,webp', 'max:3072'],
+            'image' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'extensions:jpg,jpeg,png,webp', 'max:3072'],
+        ];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private function messages(): array
+    {
+        return [
+            'image.image' => 'Foto menu harus berupa gambar.',
+            'image.mimes' => 'Foto menu hanya boleh berformat JPG, JPEG, PNG, atau WebP.',
+            'image.extensions' => 'Ekstensi foto menu harus .jpg, .jpeg, .png, atau .webp.',
+            'image.max' => 'Ukuran foto menu maksimal 3 MB.',
         ];
     }
 

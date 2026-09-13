@@ -289,8 +289,8 @@ class MarketplaceController extends Controller
     {
         $deliveryDate = Carbon::parse($date)->startOfDay();
 
-        if (! $deliveryDate->isAfter(today())) {
-            return ['available' => false, 'reason' => 'Tanggal pengiriman harus mulai besok'];
+        if ($deliveryDate->isBefore(today())) {
+            return ['available' => false, 'reason' => 'Tanggal pengiriman tidak boleh di masa lalu'];
         }
 
         if ($deliveryDate->isAfter(today()->addDays(30))) {

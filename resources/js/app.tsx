@@ -4,12 +4,15 @@ import toast, { Toaster } from 'react-hot-toast';
 import { ComponentType } from 'react';
 import { createRoot } from 'react-dom/client';
 import { InteractiveDialogProvider } from '@/Components/InteractiveDialog';
+import CelebrationOverlay, { showCelebration } from '@/Components/CelebrationOverlay';
 import { PageProps } from '@/types';
 
 router.on('success', (event) => {
     const flash = event.detail.page.props.flash as PageProps['flash'] | undefined;
+    const celebration = flash?.celebration ?? event.detail.page.props.celebration as PageProps['celebration'];
     if (flash?.success) toast.success(flash.success);
     if (flash?.error) toast.error(flash.error);
+    if (celebration) showCelebration(celebration);
 });
 
 const pages = import.meta.glob<{ default: ComponentType }>('./Pages/**/*.tsx');
@@ -27,6 +30,7 @@ createInertiaApp<PageProps>({
 
         createRoot(el).render(
             <InteractiveDialogProvider>
+                <CelebrationOverlay initialCelebration={(props.initialPage.props.flash as PageProps['flash'] | undefined)?.celebration ?? props.initialPage.props.celebration as PageProps['celebration']} />
                 <Toaster
                     containerStyle={{
                         bottom: 'auto',

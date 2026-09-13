@@ -110,7 +110,7 @@ class OrderController extends Controller
     {
         $this->ensureOwner($request, $order);
 
-        if ($order->payment_status !== 'paid') {
+        if ($order->approvedPaymentAmount() < intdiv($order->total_idr + 1, 2)) {
             return back()->with('error', 'DP minimum 50% belum diverifikasi.');
         }
 
@@ -128,6 +128,10 @@ class OrderController extends Controller
     public function deliver(Request $request, Order $order, OrderLifecycle $lifecycle): RedirectResponse
     {
         $this->ensureOwner($request, $order);
+
+        if ($order->payment_status !== 'paid' || $order->remainingPaymentAmount() > 0) {
+            return back()->with('error', 'Pelunasan 100% harus diverifikasi sebelum pesanan dikirim.');
+        }
 
         return $this->runTransition(
             $lifecycle,
@@ -147,8 +151,8 @@ class OrderController extends Controller
         try {
             DB::transaction(function () use ($order, $request): void {
                 $lockedOrder = Order::query()->lockForUpdate()->findOrFail($order->id);
-                if ($lockedOrder->order_status !== 'accepted') {
-                    throw new DomainException('Pembayaran hanya dapat diverifikasi untuk pesanan yang diterima.');
+                if (! in_array($lockedOrder->order_status, ['accepted', 'preparing'], true)) {
+                    throw new DomainException('Pembayaran hanya dapat diverifikasi saat pesanan diterima atau sedang dipersiapkan.');
                 }
 
                 $proof = PaymentProof::query()
@@ -168,14 +172,20 @@ class OrderController extends Controller
                     'reviewed_at' => now(),
                     'rejection_reason' => null,
                 ]);
-                $lockedOrder->update(['payment_status' => 'paid']);
-                $this->notifyPayment($lockedOrder, $proof, 'approved');
+                $approvedAmount = $lockedOrder->approvedPaymentAmount();
+                $paymentStatus = $approvedAmount >= $lockedOrder->total_idr ? 'paid' : 'partially_paid';
+                $lockedOrder->update(['payment_status' => $paymentStatus]);
+                $this->notifyPayment($lockedOrder, $proof, 'approved', $paymentStatus === 'paid');
             }, 3);
         } catch (DomainException $exception) {
             return back()->with('error', $exception->getMessage());
         }
 
-        return back()->with('success', 'DP/pembayaran diterima. Pesanan dapat segera disiapkan.');
+        $message = $order->refresh()->payment_status === 'paid'
+            ? 'Pelunasan diterima. Pesanan sudah boleh dikirim.'
+            : 'DP diterima. Pesanan dapat segera disiapkan.';
+
+        return back()->with('success', $message);
     }
 
     public function rejectPayment(Request $request, Order $order): RedirectResponse
@@ -186,8 +196,8 @@ class OrderController extends Controller
         try {
             DB::transaction(function () use ($order, $request, $validated): void {
                 $lockedOrder = Order::query()->lockForUpdate()->findOrFail($order->id);
-                if ($lockedOrder->order_status !== 'accepted') {
-                    throw new DomainException('Pembayaran hanya dapat diverifikasi untuk pesanan yang diterima.');
+                if (! in_array($lockedOrder->order_status, ['accepted', 'preparing'], true)) {
+                    throw new DomainException('Pembayaran hanya dapat diverifikasi saat pesanan diterima atau sedang dipersiapkan.');
                 }
 
                 $proof = PaymentProof::query()
@@ -207,7 +217,9 @@ class OrderController extends Controller
                     'reviewed_at' => now(),
                     'rejection_reason' => $validated['reason'],
                 ]);
-                $lockedOrder->update(['payment_status' => 'unpaid']);
+                $lockedOrder->update([
+                    'payment_status' => $lockedOrder->approvedPaymentAmount() > 0 ? 'partially_paid' : 'unpaid',
+                ]);
                 $this->notifyPayment($lockedOrder, $proof, 'rejected');
             }, 3);
         } catch (DomainException $exception) {
@@ -254,7 +266,7 @@ class OrderController extends Controller
         return back()->with('success', $successMessage);
     }
 
-    private function notifyPayment(Order $order, PaymentProof $proof, string $status): void
+    private function notifyPayment(Order $order, PaymentProof $proof, string $status, bool $isFullyPaid = false): void
     {
         $approved = $status === 'approved';
 
@@ -265,9 +277,11 @@ class OrderController extends Controller
             ],
             [
                 'type' => 'payment',
-                'title' => $approved ? 'DP/pembayaran diterima' : 'Pembayaran ditolak',
+                'title' => $approved ? ($isFullyPaid ? 'Pelunasan diterima' : 'DP diterima') : 'Pembayaran ditolak',
                 'message' => $approved
-                    ? "DP/pembayaran {$order->order_number} sebesar Rp".number_format($proof->amount_idr, 0, ',', '.').' telah diverifikasi.'
+                    ? ($isFullyPaid
+                        ? "Pelunasan {$order->order_number} sebesar Rp".number_format($proof->amount_idr, 0, ',', '.').' telah diverifikasi. Pesanan sudah lunas.'
+                        : "DP {$order->order_number} sebesar Rp".number_format($proof->amount_idr, 0, ',', '.').' telah diverifikasi. Silakan lunasi sebelum pengiriman.')
                     : "Bukti pembayaran {$order->order_number} ditolak. Silakan unggah ulang.",
                 'resource_type' => 'order',
                 'resource_id' => $order->id,

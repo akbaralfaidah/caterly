@@ -9,6 +9,9 @@ interface Props extends PageProps {
 
 export default function Orders({ orders }: Props) {
     const { confirm: confirmDialog, prompt: promptDialog } = useInteractiveDialog();
+    const hasVerifiedDeposit = (order: OrderData) => (order.payment_proofs ?? [])
+        .filter(proof => proof.status === 'approved')
+        .reduce((total, proof) => total + proof.amount_idr, 0) >= Math.ceil(order.total_idr / 2);
     const getStatusColor = (status: string) => {
         switch (status) {
             case 'pending_confirmation': return 'bg-accent-light text-accent-dark border-accent-light';
@@ -118,23 +121,23 @@ export default function Orders({ orders }: Props) {
                                     <div className="mb-4 grid items-start gap-4 sm:grid-cols-[minmax(0,1fr)_auto]">
                                         <div className="min-w-0">
                                             <p className="mb-1 break-words font-bold text-text-primary">{order.customer_snapshot?.company_name || 'Pelanggan'}</p>
-                                        <p className="text-sm text-text-secondary">PIC: {order.customer_snapshot?.name} ({order.customer_snapshot?.phone})</p>
-                                    </div>
+                                            <p className="text-sm text-text-secondary">PIC: {order.customer_snapshot?.name} ({order.customer_snapshot?.phone})</p>
+                                        </div>
                                         <div className="flex flex-col items-start gap-1 text-left sm:items-end sm:text-right">
-                                        <a 
-                                            href={`/merchant/orders/${order.id}/invoice`} 
-                                            target="_blank" 
-                                            className="text-xs font-semibold text-primary hover:underline"
-                                        >
-                                            Cetak Invoice
-                                        </a>
-                                        <p className="text-sm font-bold text-text-primary">{order.order_number}</p>
-                                        <p className="text-xs text-text-secondary">{formatDateTime(order.created_at)}</p>
-                                        <Link href={`/merchant/orders/${order.id}`} className="text-xs font-semibold text-primary hover:underline">
-                                            Lihat detail
-                                        </Link>
+                                            <a
+                                                href={`/merchant/orders/${order.id}/invoice`}
+                                                target="_blank"
+                                                className="text-xs font-semibold text-primary hover:underline"
+                                            >
+                                                Cetak Invoice
+                                            </a>
+                                            <p className="text-sm font-bold text-text-primary">{order.order_number}</p>
+                                            <p className="text-xs text-text-secondary">{formatDateTime(order.created_at)}</p>
+                                            <Link href={`/merchant/orders/${order.id}`} className="text-xs font-semibold text-primary hover:underline">
+                                                Lihat detail
+                                            </Link>
+                                        </div>
                                     </div>
-                                </div>
                                 
                                 <div className="grid sm:grid-cols-2 gap-4 mb-4 text-sm bg-surface/50 p-3 rounded-lg border border-border">
                                     <div>
@@ -149,7 +152,7 @@ export default function Orders({ orders }: Props) {
                                             Status: <span className={`font-semibold ${order.payment_status === 'paid' ? 'text-primary' : 'text-accent-dark'}`}>{PAYMENT_STATUS_LABELS[order.payment_status]}</span>
                                         </p>
                                     </div>
-                                </div>
+                            </div>
 
                                 <div>
                                     <p className="font-semibold text-text-primary mb-2 text-sm border-b border-border pb-1">Detail Menu ({order.total_portions} porsi)</p>
@@ -185,7 +188,7 @@ export default function Orders({ orders }: Props) {
                                     </>
                                 )}
 
-                                {order.order_status === 'accepted' && order.payment_status !== 'paid' && (
+                                {order.order_status === 'accepted' && !hasVerifiedDeposit(order) && (
                                     <div className="text-center p-3 bg-accent-light text-accent-dark border border-accent rounded-lg text-sm font-medium">
                                         Menunggu DP minimum 50% dari pelanggan diverifikasi.
                                     </div>
@@ -206,16 +209,22 @@ export default function Orders({ orders }: Props) {
                                     </button>
                                 )}
                                 
-                                {order.order_status === 'accepted' && order.payment_status === 'paid' && (
+                                {order.order_status === 'accepted' && hasVerifiedDeposit(order) && (
                                     <button onClick={() => action(order.id, 'prepare')} className="w-full py-2 bg-primary text-white text-sm font-semibold rounded-lg hover:bg-primary-dark transition-colors">
                                         Mulai Produksi (Dipersiapkan)
                                     </button>
                                 )}
 
-                                {order.order_status === 'preparing' && (
+                                {order.order_status === 'preparing' && order.payment_status === 'paid' && (
                                     <button onClick={() => action(order.id, 'deliver')} className="w-full py-2 bg-primary text-white text-sm font-semibold rounded-lg hover:bg-primary-dark transition-colors">
                                         Kirim Pesanan (Dikirim)
                                     </button>
+                                )}
+
+                                {order.order_status === 'preparing' && order.payment_status !== 'paid' && (
+                                    <div className="rounded-lg border border-accent/40 bg-accent-light p-3 text-center text-sm font-medium text-accent-dark">
+                                        Menunggu pelunasan 100% sebelum pengiriman.
+                                    </div>
                                 )}
 
                                 {order.payment_status === 'pending_review' && (

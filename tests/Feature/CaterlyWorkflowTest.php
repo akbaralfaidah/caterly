@@ -15,6 +15,7 @@ use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Storage;
+use Inertia\Testing\AssertableInertia as Assert;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
@@ -56,7 +57,7 @@ class CaterlyWorkflowTest extends TestCase
         $this->assertSame(10, $capacity->refresh()->reserved_portions);
     }
 
-    public function test_cart_accepts_next_day_order_after_four_pm(): void
+    public function test_cart_accepts_same_day_order_after_four_pm(): void
     {
         [$customer, $merchant, $address] = $this->arrangeCart();
         $menu = Menu::query()->where('merchant_id', $merchant->id)->orderBy('id')->firstOrFail();
@@ -65,7 +66,7 @@ class CaterlyWorkflowTest extends TestCase
         $response = $this->actingAs($customer)->from("/marketplace/{$merchant->id}")->post('/customer/cart/add', [
             'menu_id' => $menu->id,
             'quantity' => 1,
-            'delivery_date' => '2026-09-16',
+            'delivery_date' => '2026-09-15',
             'region_id' => $address->region_id,
             'replace_cart' => false,
         ]);
@@ -78,12 +79,40 @@ class CaterlyWorkflowTest extends TestCase
             'menu_id' => $menu->id,
             'quantity' => 11,
         ]);
+        $this->assertDatabaseHas('carts', [
+            'customer_id' => $customer->id,
+            'delivery_date' => '2026-09-15 00:00:00',
+        ]);
     }
 
-    public function test_checkout_accepts_next_day_order_after_four_pm(): void
+    public function test_cart_rejects_a_delivery_date_in_the_past_with_a_friendly_message(): void
+    {
+        [$customer, $merchant, $address] = $this->arrangeCart();
+        $menu = Menu::query()->where('merchant_id', $merchant->id)->orderBy('id')->firstOrFail();
+        $this->travelTo(Carbon::parse('2026-09-15 08:00:00', 'Asia/Jakarta'));
+
+        $response = $this->actingAs($customer)->from("/marketplace/{$merchant->id}")->post('/customer/cart/add', [
+            'menu_id' => $menu->id,
+            'quantity' => 1,
+            'delivery_date' => '2026-09-14',
+            'region_id' => $address->region_id,
+            'replace_cart' => false,
+        ]);
+
+        $response
+            ->assertRedirect("/marketplace/{$merchant->id}")
+            ->assertSessionHasErrors([
+                'delivery_date' => 'Tanggal pengiriman paling cepat hari ini.',
+            ]);
+    }
+
+    public function test_checkout_accepts_same_day_order_after_four_pm(): void
     {
         [$customer, , $address] = $this->arrangeCart();
         $this->travelTo(Carbon::parse('2026-09-15 20:00:00', 'Asia/Jakarta'));
+        Cart::query()->where('customer_id', $customer->id)->update([
+            'delivery_date' => '2026-09-15',
+        ]);
 
         $response = $this->actingAs($customer)->post('/customer/checkout', [
             'address_id' => $address->id,
@@ -95,10 +124,11 @@ class CaterlyWorkflowTest extends TestCase
             ->assertRedirectToRoute('customer.orders.show', $order)
             ->assertSessionHas('success')
             ->assertSessionMissing('error');
+        $this->assertSame('2026-09-15', $order->delivery_date->toDateString());
         $this->assertSame('2026-09-15 22:00:00', $order->expires_at?->format('Y-m-d H:i:s'));
     }
 
-    public function test_completed_order_can_be_reordered_after_four_pm(): void
+    public function test_completed_order_can_be_reordered_for_same_day_after_four_pm(): void
     {
         [$customer, , $address] = $this->arrangeCart();
         $this->actingAs($customer)->post('/customer/checkout', [
@@ -110,7 +140,7 @@ class CaterlyWorkflowTest extends TestCase
         $this->travelTo(Carbon::parse('2026-09-15 20:00:00', 'Asia/Jakarta'));
 
         $response = $this->actingAs($customer)->post("/customer/orders/{$order->id}/reorder", [
-            'delivery_date' => '2026-09-16',
+            'delivery_date' => '2026-09-15',
             'replace_cart' => true,
         ]);
 
@@ -121,7 +151,7 @@ class CaterlyWorkflowTest extends TestCase
         $this->assertDatabaseHas('carts', [
             'customer_id' => $customer->id,
             'merchant_id' => $order->merchant_id,
-            'delivery_date' => '2026-09-16 00:00:00',
+            'delivery_date' => '2026-09-15 00:00:00',
         ]);
     }
 
@@ -191,7 +221,7 @@ class CaterlyWorkflowTest extends TestCase
         $this->actingAs($merchant)->post("/merchant/orders/{$order->id}/payment/approve")
             ->assertSessionHas('success');
 
-        $this->assertSame('paid', $order->refresh()->payment_status);
+        $this->assertSame('partially_paid', $order->refresh()->payment_status);
         $this->assertSame('approved', $proof->refresh()->status);
         $this->assertSame($merchant->id, $proof->reviewed_by);
         $this->assertDatabaseHas('app_notifications', [
@@ -332,6 +362,11 @@ class CaterlyWorkflowTest extends TestCase
             'proof' => UploadedFile::fake()->image('dp-lima-puluh-persen.jpg'),
         ]);
         $this->actingAs($merchant)->post("/merchant/orders/{$order->id}/payment/approve");
+        $this->actingAs($customer)->post("/customer/orders/{$order->id}/payment", [
+            'amount_idr' => 152500,
+            'proof' => UploadedFile::fake()->image('pelunasan-menunggu-review.png'),
+        ]);
+        $this->assertSame('pending_review', $order->refresh()->payment_status);
 
         $response = $this->actingAs($merchant)->post("/merchant/orders/{$order->id}/prepare");
 
@@ -339,7 +374,7 @@ class CaterlyWorkflowTest extends TestCase
         $this->assertSame('preparing', $order->refresh()->order_status);
     }
 
-    public function test_prepared_order_can_be_sent_before_delivery_date(): void
+    public function test_prepared_order_requires_verified_settlement_before_it_can_be_sent(): void
     {
         Storage::fake('local');
         [$customer, $merchant, $address] = $this->arrangeCart();
@@ -358,10 +393,57 @@ class CaterlyWorkflowTest extends TestCase
 
         $response = $this->actingAs($merchant)->post("/merchant/orders/{$order->id}/deliver");
 
+        $response->assertSessionHas('error', 'Pelunasan 100% harus diverifikasi sebelum pesanan dikirim.');
+        $this->assertSame('preparing', $order->refresh()->order_status);
+
+        $this->actingAs($customer)->post("/customer/orders/{$order->id}/payment", [
+            'amount_idr' => 152500,
+            'proof' => UploadedFile::fake()->image('bukti-pelunasan.png'),
+        ])->assertSessionHas('success');
+        $this->actingAs($merchant)->post("/merchant/orders/{$order->id}/payment/approve")
+            ->assertSessionHas('success', 'Pelunasan diterima. Pesanan sudah boleh dikirim.');
+        $this->assertSame('paid', $order->refresh()->payment_status);
+
+        $response = $this->actingAs($merchant)->post("/merchant/orders/{$order->id}/deliver");
+
         $response->assertSessionHas('success', 'Status diubah ke Dikirim.');
         $this->assertSame('delivering', $order->refresh()->order_status);
         $this->assertSame('2026-09-14', today()->toDateString());
         $this->assertSame('2026-09-16', $order->delivery_date->toDateString());
+    }
+
+    public function test_completed_order_shows_customer_and_merchant_celebrations(): void
+    {
+        Storage::fake('local');
+        [$customer, $merchant, $address] = $this->arrangeCart();
+        $this->actingAs($customer)->post('/customer/checkout', [
+            'address_id' => $address->id,
+            'checkout_token' => '19191919-1919-4191-8191-191919191919',
+        ]);
+        $order = Order::query()->sole();
+        $this->actingAs($merchant)->post("/merchant/orders/{$order->id}/accept");
+        $this->actingAs($customer)->post("/customer/orders/{$order->id}/payment", [
+            'amount_idr' => $order->total_idr,
+            'proof' => UploadedFile::fake()->image('bukti-lunas.png'),
+        ]);
+        $this->actingAs($merchant)->post("/merchant/orders/{$order->id}/payment/approve");
+        $this->actingAs($merchant)->post("/merchant/orders/{$order->id}/prepare");
+        $this->actingAs($merchant)->post("/merchant/orders/{$order->id}/deliver");
+
+        $response = $this->actingAs($customer)->post("/customer/orders/{$order->id}/confirm-received");
+
+        $response
+            ->assertSessionHas('success')
+            ->assertSessionHas('celebration', fn (array $celebration): bool => $celebration['audience'] === 'customer'
+                && $celebration['title'] === 'Yeay, pesanan diterima!');
+        $this->assertSame('completed', $order->refresh()->order_status);
+
+        $this->actingAs($merchant)
+            ->get("/merchant/orders/{$order->id}")
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('celebration.audience', 'merchant')
+                ->where('celebration.title', 'Yeay, pesanan diterima!')
+                ->where('celebration.message', 'Terima kasih sudah bekerja keras.'));
     }
 
     public function test_expiration_job_releases_capacity_and_voids_invoice(): void

@@ -22,13 +22,13 @@ class MarketplaceControllerTest extends TestCase
         $this->get('/marketplace')->assertOk();
     }
 
-    public function test_marketplace_keeps_next_day_delivery_available_after_four_pm(): void
+    public function test_marketplace_allows_same_day_delivery_after_four_pm(): void
     {
         $this->travelTo(Carbon::parse('2026-09-15 20:00:00', 'Asia/Jakarta'));
         $this->seed();
         $region = Region::query()->where('code', 'JAMBI')->firstOrFail();
 
-        $response = $this->get("/marketplace?region_id={$region->id}&delivery_date=2026-09-16&portions=10");
+        $response = $this->get("/marketplace?region_id={$region->id}&delivery_date=2026-09-15&portions=10");
 
         $response->assertInertia(fn (Assert $page): Assert => $page
             ->component('Marketplace/Index')

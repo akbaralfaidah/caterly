@@ -98,8 +98,8 @@ class CheckoutController extends Controller
                 }
 
                 $deliveryDate = $cart->delivery_date?->copy()->startOfDay();
-                if (! $deliveryDate || ! $deliveryDate->isAfter(today()) || $deliveryDate->isAfter(today()->addDays(30))) {
-                    throw new DomainException('Tanggal pengiriman harus antara besok dan 30 hari ke depan.');
+                if (! $deliveryDate || $deliveryDate->isBefore(today()) || $deliveryDate->isAfter(today()->addDays(30))) {
+                    throw new DomainException('Tanggal pengiriman harus antara hari ini dan 30 hari ke depan.');
                 }
 
                 $isOperating = MerchantOperatingDay::query()

@@ -71,6 +71,10 @@ class OrderController extends Controller
     {
         $this->ensureOwner($request, $order);
 
+        if ($order->payment_status !== 'paid' || $order->remainingPaymentAmount() > 0) {
+            return back()->with('error', 'Pesanan harus dilunasi sebelum dapat dikonfirmasi diterima.');
+        }
+
         try {
             $lifecycle->transition(
                 $order,
@@ -83,15 +87,26 @@ class OrderController extends Controller
             return back()->with('error', $exception->getMessage());
         }
 
-        return back()->with('success', 'Pesanan selesai. Terima kasih!');
+        return back()
+            ->with('success', 'Pesanan selesai. Terima kasih!')
+            ->with('celebration', [
+                'id' => "customer-order-{$order->id}-completed",
+                'audience' => 'customer',
+                'title' => 'Yeay, pesanan diterima!',
+                'message' => 'Silakan menikmati pesananmu.',
+                'order_number' => $order->order_number,
+            ]);
     }
 
     public function reorder(Request $request, Order $order): RedirectResponse
     {
         $this->ensureOwner($request, $order);
         $validated = $request->validate([
-            'delivery_date' => ['required', 'date', 'after:today', 'before_or_equal:'.today()->addDays(30)->toDateString()],
+            'delivery_date' => ['required', 'date', 'after_or_equal:today', 'before_or_equal:'.today()->addDays(30)->toDateString()],
             'replace_cart' => ['required', 'accepted'],
+        ], [
+            'delivery_date.after_or_equal' => 'Tanggal pengiriman paling cepat hari ini.',
+            'delivery_date.before_or_equal' => 'Tanggal pengiriman maksimal 30 hari ke depan.',
         ]);
 
         if ($order->order_status !== 'completed') {
@@ -197,28 +212,34 @@ class OrderController extends Controller
             DB::transaction(function () use (&$path, $order, $request, $validated): void {
                 $lockedOrder = Order::query()->lockForUpdate()->findOrFail($order->id);
 
-                if ($lockedOrder->order_status !== 'accepted') {
+                if (! in_array($lockedOrder->order_status, ['accepted', 'preparing'], true)) {
                     throw ValidationException::withMessages([
-                        'proof' => 'Bukti pembayaran hanya dapat diunggah setelah pesanan diterima.',
+                        'proof' => 'Bukti pembayaran hanya dapat diunggah saat pesanan diterima atau sedang dipersiapkan.',
                     ]);
                 }
 
-                if ($lockedOrder->payment_status === 'paid') {
+                $approvedAmount = $lockedOrder->approvedPaymentAmount();
+                $remainingAmount = max(0, $lockedOrder->total_idr - $approvedAmount);
+
+                if ($remainingAmount === 0) {
                     throw ValidationException::withMessages(['proof' => 'Pesanan ini sudah lunas.']);
                 }
 
                 $minimumDeposit = intdiv($lockedOrder->total_idr + 1, 2);
                 $amount = (int) $validated['amount_idr'];
+                $minimumPayment = $approvedAmount > 0 ? $remainingAmount : $minimumDeposit;
 
-                if ($amount < $minimumDeposit) {
+                if ($amount < $minimumPayment) {
                     throw ValidationException::withMessages([
-                        'amount_idr' => 'Nominal pembayaran minimal DP 50% sebesar Rp'.number_format($minimumDeposit, 0, ',', '.'),
+                        'amount_idr' => $approvedAmount > 0
+                            ? 'Nominal pelunasan harus sebesar sisa pembayaran Rp'.number_format($remainingAmount, 0, ',', '.')
+                            : 'Nominal pembayaran minimal DP 50% sebesar Rp'.number_format($minimumDeposit, 0, ',', '.'),
                     ]);
                 }
 
-                if ($amount > $lockedOrder->total_idr) {
+                if ($amount > $remainingAmount) {
                     throw ValidationException::withMessages([
-                        'amount_idr' => 'Nominal pembayaran tidak boleh melebihi total pesanan.',
+                        'amount_idr' => 'Nominal pembayaran tidak boleh melebihi sisa pembayaran Rp'.number_format($remainingAmount, 0, ',', '.'),
                     ]);
                 }
 

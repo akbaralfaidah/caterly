@@ -17,11 +17,12 @@ interface Props extends PageProps {
     default_capacity: number;
     capacities: CapacityRecord[];
     operating_days: { weekday: number; is_open: boolean }[];
+    calendar_start_date: string;
 }
 
 const dayNames = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
 
-export default function Capacity({ default_capacity, capacities, operating_days }: Props) {
+export default function Capacity({ default_capacity, capacities, operating_days, calendar_start_date }: Props) {
     const [selectedDate, setSelectedDate] = useState<string>('');
     const [isClosed, setIsClosed] = useState(false);
     const [overrideVal, setOverrideVal] = useState<string>('');
@@ -62,12 +63,16 @@ export default function Capacity({ default_capacity, capacities, operating_days 
     };
 
     // Calendar generation for next 30 days
-    const today = new Date();
+    const today = new Date(`${calendar_start_date}T00:00:00`);
     const days = [];
     for (let i = 0; i < 30; i++) {
-        const d = new Date();
+        const d = new Date(today);
         d.setDate(today.getDate() + i);
-        const dateStr = d.toISOString().split('T')[0];
+        const dateStr = [
+            d.getFullYear(),
+            String(d.getMonth() + 1).padStart(2, '0'),
+            String(d.getDate()).padStart(2, '0'),
+        ].join('-');
         
         const record = capacities.find(c => c.delivery_date === dateStr);
         const maxCap = record?.capacity ?? default_capacity;
@@ -170,7 +175,7 @@ export default function Capacity({ default_capacity, capacities, operating_days 
                         <div className="p-5 border-b border-border">
                             <h3 className="text-lg font-bold text-text-primary">Atur Kapasitas</h3>
                             <p className="text-sm text-text-secondary">
-                                Tanggal: {new Date(selectedDate).toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+                                Tanggal: {new Date(`${selectedDate}T00:00:00`).toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
                             </p>
                         </div>
                         

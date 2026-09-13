@@ -15,10 +15,18 @@ export default function OrderDetail({ order }: Props) {
     const paymentProofs = order.payment_proofs ?? [];
     const hasSubmittedProof = paymentProofs.some((proof) => proof.status === 'submitted');
     const rejectedProofs = paymentProofs.filter((proof) => proof.status === 'rejected');
+    const approvedAmount = paymentProofs
+        .filter((proof) => proof.status === 'approved')
+        .reduce((total, proof) => total + proof.amount_idr, 0);
+    const remainingAmount = Math.max(0, order.total_idr - approvedAmount);
     const minimumDeposit = Math.ceil(order.total_idr / 2);
+    const nextPaymentAmount = approvedAmount > 0 ? remainingAmount : minimumDeposit;
+    const canUploadPayment = ['accepted', 'preparing'].includes(order.order_status)
+        && remainingAmount > 0
+        && !hasSubmittedProof;
     
     const { data, setData, post, processing, errors, clearErrors } = useForm({
-        amount_idr: minimumDeposit.toString(),
+        amount_idr: nextPaymentAmount.toString(),
         proof: null as File | null,
     });
 
@@ -113,7 +121,7 @@ export default function OrderDetail({ order }: Props) {
                                     Batalkan Pesanan
                                 </button>
                             )}
-                            {order.order_status === 'delivering' && (
+                            {order.order_status === 'delivering' && order.payment_status === 'paid' && (
                                 <button onClick={confirmReceived} className="px-4 py-2 text-sm font-semibold text-white bg-primary rounded-lg hover:bg-primary-dark transition-colors">
                                     Pesanan Diterima
                                 </button>
@@ -200,13 +208,31 @@ export default function OrderDetail({ order }: Props) {
                                 </span>
                             </div>
                             <div className="p-5">
-                                {order.payment_status === 'unpaid' && order.order_status === 'accepted' && !hasSubmittedProof ? (
+                                <div className="mb-4 rounded-xl border border-border bg-surface p-4">
+                                    <div className="mb-2 flex items-center justify-between gap-3 text-sm">
+                                        <span className="font-semibold text-text-secondary">Pembayaran terverifikasi</span>
+                                        <span className="font-extrabold text-primary tabular-nums">{formatRupiah(approvedAmount)}</span>
+                                    </div>
+                                    <div className="h-2 overflow-hidden rounded-full bg-border">
+                                        <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${Math.min(100, (approvedAmount / order.total_idr) * 100)}%` }} />
+                                    </div>
+                                    <div className="mt-2 flex items-center justify-between gap-3 text-xs text-text-secondary">
+                                        <span>{Math.round((approvedAmount / order.total_idr) * 100)}% dibayar</span>
+                                        <span>Sisa {formatRupiah(remainingAmount)}</span>
+                                    </div>
+                                </div>
+
+                                {canUploadPayment ? (
                                     <div className="space-y-4">
                                         <form onSubmit={uploadPayment} className="space-y-4">
                                             <div className="rounded-xl border border-primary/20 bg-primary-light/40 p-4">
-                                                <p className="text-xs font-bold uppercase tracking-wide text-primary">Minimal DP 50%</p>
-                                                <p className="mt-1 text-2xl font-extrabold text-text-primary tabular-nums">{formatRupiah(minimumDeposit)}</p>
-                                                <p className="mt-1 text-xs text-text-secondary">Katering baru dapat memulai produksi setelah bukti pembayaran diverifikasi.</p>
+                                                <p className="text-xs font-bold uppercase tracking-wide text-primary">{approvedAmount > 0 ? 'Pelunasan sebelum pengiriman' : 'Minimal DP 50%'}</p>
+                                                <p className="mt-1 text-2xl font-extrabold text-text-primary tabular-nums">{formatRupiah(nextPaymentAmount)}</p>
+                                                <p className="mt-1 text-xs text-text-secondary">
+                                                    {approvedAmount > 0
+                                                        ? 'Sisa pembayaran wajib diverifikasi sebelum katering dapat mengirim pesanan.'
+                                                        : 'Katering baru dapat memulai produksi setelah bukti DP diverifikasi.'}
+                                                </p>
                                             </div>
                                             <div className="rounded-lg bg-surface p-3 text-sm">
                                                 <p className="font-bold">{order.bank_snapshot?.bank_name || 'Bank belum dicantumkan'}</p>
@@ -218,22 +244,24 @@ export default function OrderDetail({ order }: Props) {
                                                 <label className="mb-1.5 block text-sm font-semibold text-text-primary">Nominal yang ditransfer</label>
                                                 <input
                                                     type="number"
-                                                    min={minimumDeposit}
-                                                    max={order.total_idr}
+                                                    min={nextPaymentAmount}
+                                                    max={remainingAmount}
                                                     step="1"
                                                     value={data.amount_idr}
                                                     onChange={e => setData('amount_idr', e.target.value)}
                                                     className="h-11 w-full rounded-lg border border-border px-3 text-sm outline-none transition focus:border-primary focus:ring-4 focus:ring-primary/10"
                                                     required
                                                 />
-                                                <div className="mt-2 grid grid-cols-2 gap-2">
-                                                    <button type="button" onClick={() => setData('amount_idr', minimumDeposit.toString())} className="rounded-lg border border-primary/30 bg-primary-light px-3 py-2 text-xs font-bold text-primary">
-                                                        Pilih DP 50%
-                                                    </button>
-                                                    <button type="button" onClick={() => setData('amount_idr', order.total_idr.toString())} className="rounded-lg border border-border bg-white px-3 py-2 text-xs font-bold text-text-primary">
-                                                        Bayar lunas
-                                                    </button>
-                                                </div>
+                                                {approvedAmount === 0 && (
+                                                    <div className="mt-2 grid grid-cols-2 gap-2">
+                                                        <button type="button" onClick={() => setData('amount_idr', minimumDeposit.toString())} className="rounded-lg border border-primary/30 bg-primary-light px-3 py-2 text-xs font-bold text-primary">
+                                                            Pilih DP 50%
+                                                        </button>
+                                                        <button type="button" onClick={() => setData('amount_idr', order.total_idr.toString())} className="rounded-lg border border-border bg-white px-3 py-2 text-xs font-bold text-text-primary">
+                                                            Bayar lunas
+                                                        </button>
+                                                    </div>
+                                                )}
                                                 {errors.amount_idr && <p className="mt-1 text-xs text-error">{errors.amount_idr}</p>}
                                             </div>
 
@@ -255,7 +283,7 @@ export default function OrderDetail({ order }: Props) {
                                                 disabled={processing || !data.proof}
                                                 className="w-full py-2 bg-primary text-white text-sm font-semibold rounded-lg hover:bg-primary-dark disabled:opacity-50 transition-colors"
                                             >
-                                                {processing ? 'Mengupload...' : 'Upload Bukti'}
+                                                {processing ? 'Mengupload...' : approvedAmount > 0 ? 'Upload Bukti Pelunasan' : 'Upload Bukti Pembayaran'}
                                             </button>
                                         </form>
 

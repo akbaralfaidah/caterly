@@ -1,5 +1,6 @@
 ﻿import { Link, usePage } from '@inertiajs/react';
 import LogoutButton from '@/Components/LogoutButton';
+import { usePoll } from '@inertiajs/react';
 import { PageProps } from '@/types';
 import { ReactNode, useState } from 'react';
 
@@ -17,6 +18,8 @@ export default function MerchantLayout({ children, title }: { children: ReactNod
     const { auth } = usePage<PageProps>().props;
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const currentPath = window.location.pathname;
+
+    usePoll(8000, { only: ['celebration'] }, { keepAlive: true });
 
     return (
         <div className="min-h-screen bg-surface">

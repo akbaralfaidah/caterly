@@ -26,7 +26,15 @@ class CapacityController extends Controller
             ->where('merchant_id', $merchantId)
             ->whereBetween('delivery_date', [today()->toDateString(), today()->addDays(60)->toDateString()])
             ->orderBy('delivery_date')
-            ->get();
+            ->get()
+            ->map(fn (MerchantDateCapacity $capacity): array => [
+                'id' => $capacity->id,
+                'delivery_date' => $capacity->delivery_date->toDateString(),
+                'capacity' => $capacity->capacity,
+                'reserved_portions' => $capacity->reserved_portions,
+                'is_closed' => $capacity->is_closed,
+                'is_override' => $capacity->is_override,
+            ]);
 
         $storedDays = MerchantOperatingDay::query()
             ->where('merchant_id', $merchantId)
@@ -41,6 +49,7 @@ class CapacityController extends Controller
             'default_capacity' => $profile->default_daily_capacity,
             'capacities' => $capacities,
             'operating_days' => $operatingDays,
+            'calendar_start_date' => today()->toDateString(),
         ]);
     }
 

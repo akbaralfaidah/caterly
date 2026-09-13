@@ -14,7 +14,17 @@ export interface PageProps {
     flash: {
         success: string | null;
         error: string | null;
+        celebration: CelebrationData | null;
     };
+    celebration?: CelebrationData | null;
+}
+
+export interface CelebrationData {
+    id: string;
+    audience: 'customer' | 'merchant';
+    title: string;
+    message: string;
+    order_number?: string | null;
 }
 
 export interface Region {
@@ -214,6 +224,26 @@ export function formatDateTime(dateStr: string): string {
     }) + ' WIB';
 }
 
+export function deliveryDateInputValue(daysFromToday = 0): string {
+    const date = new Date();
+    date.setDate(date.getDate() + daysFromToday);
+
+    return [
+        date.getFullYear(),
+        String(date.getMonth() + 1).padStart(2, '0'),
+        String(date.getDate()).padStart(2, '0'),
+    ].join('-');
+}
+
+const DEFAULT_MENU_IMAGE_URL = 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=800&q=85&auto=format&fit=crop';
+
+export function menuImageUrl(imagePath: string | null | undefined): string {
+    if (!imagePath) return DEFAULT_MENU_IMAGE_URL;
+    if (/^https?:\/\//i.test(imagePath)) return imagePath;
+
+    return `/storage/${imagePath.replace(/^\/+/, '')}`;
+}
+
 export const ORDER_STATUS_LABELS: Record<string, string> = {
     pending_confirmation: 'Menunggu Konfirmasi',
     accepted: 'Diterima',
@@ -228,5 +258,6 @@ export const ORDER_STATUS_LABELS: Record<string, string> = {
 export const PAYMENT_STATUS_LABELS: Record<string, string> = {
     unpaid: 'Belum Dibayar',
     pending_review: 'Menunggu Verifikasi',
+    partially_paid: 'DP Terverifikasi',
     paid: 'Pembayaran Terverifikasi',
 };

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -76,6 +77,26 @@ class Order extends Model
     public function statusEvents(): HasMany
     {
         return $this->hasMany(OrderStatusEvent::class)->orderBy('created_at');
+    }
+
+    public function approvedPaymentAmount(): int
+    {
+        return (int) $this->paymentProofs()
+            ->where('status', 'approved')
+            ->sum('amount_idr');
+    }
+
+    public function remainingPaymentAmount(): int
+    {
+        return max(0, $this->total_idr - $this->approvedPaymentAmount());
+    }
+
+    public function scopeWithVerifiedDeposit(Builder $query): Builder
+    {
+        return $query->whereRaw(
+            '(SELECT COALESCE(SUM(payment_proofs.amount_idr), 0) FROM payment_proofs WHERE payment_proofs.order_id = orders.id AND payment_proofs.status = ?) * 2 >= orders.total_idr',
+            ['approved'],
+        );
     }
 
     public function capacityReservation(): HasOne

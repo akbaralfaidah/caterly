@@ -157,9 +157,9 @@ return new class extends Migration
             $table->string('delivery_slot', 30)->default('11:00-12:00 WIB');
             $table->enum('order_status', [
                 'pending_confirmation', 'accepted', 'rejected',
-                'cancelled', 'expired', 'preparing', 'delivering', 'completed'
+                'cancelled', 'expired', 'preparing', 'delivering', 'completed',
             ])->default('pending_confirmation');
-            $table->enum('payment_status', ['unpaid', 'pending_review', 'paid'])->default('unpaid');
+            $table->enum('payment_status', ['unpaid', 'pending_review', 'partially_paid', 'paid'])->default('unpaid');
             $table->unsignedInteger('total_portions');
             $table->unsignedBigInteger('subtotal_idr');
             $table->unsignedInteger('delivery_fee_idr');

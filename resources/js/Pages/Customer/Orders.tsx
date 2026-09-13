@@ -2,7 +2,7 @@
 import GuestLayout from '@/Layouts/GuestLayout';
 import { useInteractiveDialog } from '@/Components/InteractiveDialog';
 import { router } from '@inertiajs/react';
-import { PageProps, PaginatedData, OrderData, ORDER_STATUS_LABELS, PAYMENT_STATUS_LABELS, formatRupiah, formatDateTime, formatDate } from '@/types';
+import { PageProps, PaginatedData, OrderData, ORDER_STATUS_LABELS, PAYMENT_STATUS_LABELS, deliveryDateInputValue, formatRupiah, formatDateTime, formatDate } from '@/types';
 
 interface Props extends PageProps {
     orders: PaginatedData<OrderData>;
@@ -12,26 +12,14 @@ export default function Orders({ orders }: Props) {
     const { confirm: confirmDialog, prompt: promptDialog } = useInteractiveDialog();
 
     const reorder = async (orderId: number) => {
-        const formatInputDate = (date: Date) => [
-            date.getFullYear(),
-            String(date.getMonth() + 1).padStart(2, '0'),
-            String(date.getDate()).padStart(2, '0'),
-        ].join('-');
-        const minimumDate = new Date();
-        const suggestedDate = new Date();
-        const maximumDate = new Date();
-        minimumDate.setDate(minimumDate.getDate() + 1);
-        suggestedDate.setDate(suggestedDate.getDate() + 2);
-        maximumDate.setDate(maximumDate.getDate() + 30);
-
         const deliveryDate = await promptDialog({
             title: 'Pesan menu ini lagi',
-            message: 'Pilih tanggal pengiriman baru untuk pesanan Anda.',
+            message: 'Pilih tanggal pengiriman. Pesanan hari ini tetap menunggu kesanggupan katering.',
             inputLabel: 'Tanggal pengiriman',
             inputType: 'date',
-            defaultValue: formatInputDate(suggestedDate),
-            min: formatInputDate(minimumDate),
-            max: formatInputDate(maximumDate),
+            defaultValue: deliveryDateInputValue(),
+            min: deliveryDateInputValue(),
+            max: deliveryDateInputValue(30),
             confirmLabel: 'Pilih tanggal',
         });
         if (!deliveryDate) return;

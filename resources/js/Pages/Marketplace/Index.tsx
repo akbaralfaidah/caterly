@@ -3,7 +3,7 @@ import { Head, Link, useForm } from '@inertiajs/react';
 import { Calendar, ChevronRight, MapPin, Search, SlidersHorizontal, Users, Utensils } from 'lucide-react';
 import GuestLayout from '@/Layouts/GuestLayout';
 import MerchantLayout from '@/Layouts/MerchantLayout';
-import { Category, MerchantCard, PageProps, PaginatedData, Region, formatRupiah } from '@/types';
+import { Category, MerchantCard, PageProps, PaginatedData, Region, deliveryDateInputValue, formatRupiah } from '@/types';
 
 interface Props extends PageProps {
     merchants: PaginatedData<MerchantCard>;
@@ -75,8 +75,8 @@ export default function MarketplaceIndex({ auth, merchants, regions, categories,
                                 type="date"
                                 value={data.delivery_date}
                                 onChange={event => setData('delivery_date', event.target.value)}
-                                min={new Date(Date.now() + 86400000).toISOString().slice(0, 10)}
-                                max={new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10)}
+                                min={deliveryDateInputValue()}
+                                max={deliveryDateInputValue(30)}
                                 className="h-11 w-full rounded-lg border border-border pl-10 pr-3 outline-none focus:border-primary"
                             />
                         </label>
