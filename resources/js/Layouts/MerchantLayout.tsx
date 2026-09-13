@@ -1,4 +1,5 @@
 ﻿import { Link, usePage } from '@inertiajs/react';
+import LogoutButton from '@/Components/LogoutButton';
 import { PageProps } from '@/types';
 import { ReactNode, useState } from 'react';
 
@@ -71,14 +72,7 @@ export default function MerchantLayout({ children, title }: { children: ReactNod
                     <div className="p-4 border-t border-border">
                         <div className="text-sm font-semibold text-text-primary truncate">{auth.user?.company_name}</div>
                         <div className="text-xs text-text-secondary truncate mt-0.5">{auth.user?.email}</div>
-                        <Link
-                            href="/logout"
-                            method="post"
-                            as="button"
-                            className="mt-3 text-sm text-error hover:text-error/80 font-medium"
-                        >
-                            Keluar
-                        </Link>
+                        <LogoutButton className="mt-3 w-full rounded-xl border border-error/20 bg-error-light px-3 py-2.5 text-sm text-error hover:-translate-y-0.5 hover:border-error/30 hover:bg-red-100" />
                     </div>
                 </aside>
 

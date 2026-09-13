@@ -1,4 +1,5 @@
 import { Link, usePage } from '@inertiajs/react';
+import LogoutButton from '@/Components/LogoutButton';
 import { PageProps } from '@/types';
 import { ReactNode } from 'react';
 
@@ -31,6 +32,7 @@ export default function GuestLayout({ children }: { children: ReactNode }) {
                                     >
                                         Dashboard
                                     </Link>
+                                    <LogoutButton className="rounded-xl border border-error/20 bg-error-light px-3 py-2 text-sm text-error hover:-translate-y-0.5 hover:border-error/30 hover:bg-red-100" />
                                 </div>
                             </>
                         ) : (
