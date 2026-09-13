@@ -173,6 +173,7 @@ export interface StatusEvent {
 
 export interface PaymentProofData {
     id: number;
+    amount_idr: number;
     status: 'submitted' | 'approved' | 'rejected';
     original_name: string | null;
     created_at: string;
@@ -227,5 +228,5 @@ export const ORDER_STATUS_LABELS: Record<string, string> = {
 export const PAYMENT_STATUS_LABELS: Record<string, string> = {
     unpaid: 'Belum Dibayar',
     pending_review: 'Menunggu Verifikasi',
-    paid: 'Lunas',
+    paid: 'Pembayaran Terverifikasi',
 };

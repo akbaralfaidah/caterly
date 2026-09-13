@@ -111,7 +111,7 @@ class OrderController extends Controller
         $this->ensureOwner($request, $order);
 
         if ($order->payment_status !== 'paid') {
-            return back()->with('error', 'Pesanan belum dibayar lunas.');
+            return back()->with('error', 'DP minimum 50% belum diverifikasi.');
         }
 
         if ($order->delivery_date->isFuture()) {
@@ -183,7 +183,7 @@ class OrderController extends Controller
             return back()->with('error', $exception->getMessage());
         }
 
-        return back()->with('success', 'Pembayaran diterima.');
+        return back()->with('success', 'DP/pembayaran diterima. Pesanan dapat diproses pada tanggal pengiriman.');
     }
 
     public function rejectPayment(Request $request, Order $order): RedirectResponse
@@ -273,9 +273,9 @@ class OrderController extends Controller
             ],
             [
                 'type' => 'payment',
-                'title' => $approved ? 'Pembayaran diterima' : 'Pembayaran ditolak',
+                'title' => $approved ? 'DP/pembayaran diterima' : 'Pembayaran ditolak',
                 'message' => $approved
-                    ? "Pembayaran {$order->order_number} telah diverifikasi."
+                    ? "DP/pembayaran {$order->order_number} sebesar Rp".number_format($proof->amount_idr, 0, ',', '.').' telah diverifikasi.'
                     : "Bukti pembayaran {$order->order_number} ditolak. Silakan unggah ulang.",
                 'resource_type' => 'order',
                 'resource_id' => $order->id,

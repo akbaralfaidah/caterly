@@ -97,10 +97,6 @@ class OrderController extends Controller
         }
 
         $deliveryDate = Carbon::parse($validated['delivery_date'])->startOfDay();
-        if (now()->greaterThanOrEqualTo($deliveryDate->copy()->subDay()->setTime(16, 0))) {
-            return back()->with('error', 'Batas pemesanan pukul 16.00 WIB pada H-1 telah lewat.');
-        }
-
         $isOperating = MerchantOperatingDay::query()
             ->where('merchant_id', $order->merchant_id)
             ->where('weekday', $deliveryDate->dayOfWeek)
@@ -160,14 +156,15 @@ class OrderController extends Controller
     public function uploadPayment(Request $request, Order $order): RedirectResponse
     {
         $this->ensureOwner($request, $order);
-        $request->validate([
+        $validated = $request->validate([
+            'amount_idr' => ['required', 'integer', 'min:1'],
             'proof' => ['required', 'file', 'mimes:jpg,jpeg,png,webp,pdf', 'extensions:jpg,jpeg,png,webp,pdf', 'max:5120'],
         ]);
 
         $path = null;
 
         try {
-            DB::transaction(function () use (&$path, $order, $request): void {
+            DB::transaction(function () use (&$path, $order, $request, $validated): void {
                 $lockedOrder = Order::query()->lockForUpdate()->findOrFail($order->id);
 
                 if ($lockedOrder->order_status !== 'accepted') {
@@ -178,6 +175,21 @@ class OrderController extends Controller
 
                 if ($lockedOrder->payment_status === 'paid') {
                     throw ValidationException::withMessages(['proof' => 'Pesanan ini sudah lunas.']);
+                }
+
+                $minimumDeposit = intdiv($lockedOrder->total_idr + 1, 2);
+                $amount = (int) $validated['amount_idr'];
+
+                if ($amount < $minimumDeposit) {
+                    throw ValidationException::withMessages([
+                        'amount_idr' => 'Nominal pembayaran minimal DP 50% sebesar Rp'.number_format($minimumDeposit, 0, ',', '.'),
+                    ]);
+                }
+
+                if ($amount > $lockedOrder->total_idr) {
+                    throw ValidationException::withMessages([
+                        'amount_idr' => 'Nominal pembayaran tidak boleh melebihi total pesanan.',
+                    ]);
                 }
 
                 $hasPendingProof = PaymentProof::query()
@@ -194,11 +206,12 @@ class OrderController extends Controller
                 $file = $request->file('proof');
                 $path = $file->store("payment-proofs/{$lockedOrder->id}", 'local');
 
-                PaymentProof::query()->create([
+                $proof = PaymentProof::query()->create([
                     'order_id' => $lockedOrder->id,
                     'storage_path' => $path,
                     'original_name' => $file->getClientOriginalName(),
                     'mime_type' => $file->getMimeType() ?: 'application/octet-stream',
+                    'amount_idr' => $amount,
                     'status' => 'submitted',
                     'submitted_by' => $request->user()->id,
                 ]);
@@ -208,12 +221,12 @@ class OrderController extends Controller
                 Notification::query()->firstOrCreate(
                     [
                         'user_id' => $lockedOrder->merchant_id,
-                        'event_key' => "order:{$lockedOrder->id}:payment:submitted",
+                        'event_key' => "order:{$lockedOrder->id}:payment:submitted:{$proof->id}",
                     ],
                     [
                         'type' => 'payment',
                         'title' => 'Bukti pembayaran baru',
-                        'message' => "Bukti pembayaran {$lockedOrder->order_number} menunggu pemeriksaan.",
+                        'message' => "Bukti DP/pembayaran {$lockedOrder->order_number} sebesar Rp".number_format($amount, 0, ',', '.').' menunggu pemeriksaan.',
                         'resource_type' => 'order',
                         'resource_id' => $lockedOrder->id,
                     ],
@@ -227,7 +240,7 @@ class OrderController extends Controller
             throw $exception;
         }
 
-        return back()->with('success', 'Bukti pembayaran berhasil diunggah dan menunggu verifikasi.');
+        return back()->with('success', 'Bukti DP/pembayaran berhasil diunggah dan menunggu verifikasi.');
     }
 
     private function ensureOwner(Request $request, Order $order): void

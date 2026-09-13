@@ -38,7 +38,7 @@ class CartController extends Controller
         $cartData = null;
         if ($cart) {
             $defaultAddress = $addresses->firstWhere('is_default', true);
-            $effectiveRegionId = $defaultAddress?->region_id ?? $cart->region_id;
+            $effectiveRegionId = $cart->region_id ?? $defaultAddress?->region_id;
             $serviceArea = $effectiveRegionId
                 ? MerchantServiceArea::query()
                     ->where('merchant_id', $cart->merchant_id)
@@ -91,6 +91,7 @@ class CartController extends Controller
             'menu_id' => ['required', 'integer', 'exists:menus,id'],
             'quantity' => ['required', 'integer', 'min:1', 'max:10000'],
             'delivery_date' => ['required', 'date', 'after:today', 'before_or_equal:'.today()->addDays(30)->toDateString()],
+            'region_id' => ['required', 'integer', 'exists:regions,id'],
             'replace_cart' => ['sometimes', 'boolean'],
         ]);
 
@@ -99,11 +100,27 @@ class CartController extends Controller
             return back()->with('error', 'Menu ini sedang tidak tersedia.');
         }
 
-        $deliveryDate = Carbon::parse($validated['delivery_date'])->startOfDay();
-        if (now()->greaterThanOrEqualTo($deliveryDate->copy()->subDay()->setTime(16, 0))) {
-            return back()->with('error', 'Batas pemesanan pukul 16.00 WIB pada H-1 telah lewat.');
+        $deliveryAddress = CustomerAddress::query()
+            ->where('customer_id', $request->user()->id)
+            ->where('region_id', $validated['region_id'])
+            ->orderByDesc('is_default')
+            ->orderBy('id')
+            ->first();
+
+        if (! $deliveryAddress) {
+            return back()->with('error', 'Tambahkan alamat perusahaan di area katering ini sebelum memesan.');
         }
 
+        $isServiceable = MerchantServiceArea::query()
+            ->where('merchant_id', $menu->merchant_id)
+            ->where('region_id', $deliveryAddress->region_id)
+            ->exists();
+
+        if (! $isServiceable) {
+            return back()->with('error', 'Katering tidak melayani area alamat perusahaan yang dipilih.');
+        }
+
+        $deliveryDate = Carbon::parse($validated['delivery_date'])->startOfDay();
         $isOperating = MerchantOperatingDay::query()
             ->where('merchant_id', $menu->merchant_id)
             ->where('weekday', $deliveryDate->dayOfWeek)
@@ -114,7 +131,7 @@ class CartController extends Controller
             return back()->with('error', 'Katering tidak beroperasi pada tanggal tersebut.');
         }
 
-        $cart = DB::transaction(function () use ($deliveryDate, $menu, $request, $validated): Cart {
+        $cart = DB::transaction(function () use ($deliveryAddress, $deliveryDate, $menu, $request, $validated): Cart {
             $cart = Cart::query()
                 ->where('customer_id', $request->user()->id)
                 ->lockForUpdate()
@@ -126,29 +143,24 @@ class CartController extends Controller
                 ]);
             }
 
-            $defaultAddress = CustomerAddress::query()
-                ->where('customer_id', $request->user()->id)
-                ->where('is_default', true)
-                ->first();
-
             if (! $cart) {
                 $cart = Cart::query()->create([
                     'customer_id' => $request->user()->id,
                     'merchant_id' => $menu->merchant_id,
                     'delivery_date' => $deliveryDate,
-                    'region_id' => $defaultAddress?->region_id,
+                    'region_id' => $deliveryAddress->region_id,
                 ]);
             } elseif ($cart->merchant_id !== $menu->merchant_id) {
                 $cart->items()->delete();
                 $cart->update([
                     'merchant_id' => $menu->merchant_id,
                     'delivery_date' => $deliveryDate,
-                    'region_id' => $defaultAddress?->region_id,
+                    'region_id' => $deliveryAddress->region_id,
                 ]);
             } else {
                 $cart->update([
                     'delivery_date' => $deliveryDate,
-                    'region_id' => $defaultAddress?->region_id,
+                    'region_id' => $deliveryAddress->region_id,
                 ]);
             }
 

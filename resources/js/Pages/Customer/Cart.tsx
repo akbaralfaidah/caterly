@@ -1,4 +1,5 @@
 import { Head, Link, router } from '@inertiajs/react';
+import { useInteractiveDialog } from '@/Components/InteractiveDialog';
 import GuestLayout from '@/Layouts/GuestLayout';
 import { PageProps, CartData, Address, formatRupiah } from '@/types';
 import { useState } from 'react';
@@ -10,6 +11,7 @@ interface Props extends PageProps {
 
 export default function Cart({ cart, addresses }: Props) {
     const [notes, setNotes] = useState('');
+    const { confirm: confirmDialog } = useInteractiveDialog();
     const updateQuantity = (itemId: number, newQty: number) => {
         if (newQty < 1) return;
         router.patch(`/customer/cart/items/${itemId}`, { quantity: newQty }, { preserveScroll: true });
@@ -19,10 +21,17 @@ export default function Cart({ cart, addresses }: Props) {
         router.delete(`/customer/cart/items/${itemId}`, { preserveScroll: true });
     };
 
-    const clearCart = () => {
-        if (confirm('Yakin ingin mengosongkan keranjang?')) {
-            router.delete('/customer/cart', { preserveScroll: true });
-        }
+    const clearCart = async () => {
+        const confirmed = await confirmDialog({
+            title: 'Kosongkan keranjang?',
+            message: 'Semua menu yang sudah Anda pilih akan dihapus dari keranjang.',
+            confirmLabel: 'Ya, kosongkan',
+            tone: 'danger',
+        });
+
+        if (!confirmed) return;
+
+        router.delete('/customer/cart', { preserveScroll: true });
     };
 
     const checkout = () => {

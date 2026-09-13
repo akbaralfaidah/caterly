@@ -1,5 +1,6 @@
 import { Head, Link, router } from '@inertiajs/react';
 import MerchantLayout from '@/Layouts/MerchantLayout';
+import { useInteractiveDialog } from '@/Components/InteractiveDialog';
 import { ORDER_STATUS_LABELS, OrderData, PAYMENT_STATUS_LABELS, PageProps, formatDate, formatDateTime, formatRupiah } from '@/types';
 
 interface Props extends PageProps {
@@ -7,13 +8,44 @@ interface Props extends PageProps {
 }
 
 export default function OrderDetail({ order }: Props) {
+    const { confirm: confirmDialog, prompt: promptDialog } = useInteractiveDialog();
+
     const post = (action: string, data: Record<string, string> = {}) => {
         router.post('/merchant/orders/' + order.id + '/' + action, data, { preserveScroll: true });
     };
 
-    const askReason = (action: string, label: string) => {
-        const reason = prompt(label);
-        if (reason) post(action, { reason });
+    const confirmPost = async (
+        action: string,
+        title: string,
+        message: string,
+        confirmLabel: string,
+        tone: 'primary' | 'success' = 'primary',
+    ) => {
+        const confirmed = await confirmDialog({
+            title,
+            message,
+            confirmLabel,
+            tone,
+        });
+
+        if (!confirmed) return;
+
+        post(action);
+    };
+
+    const askReason = async (action: string, title: string, message: string, confirmLabel: string) => {
+        const reason = await promptDialog({
+            title,
+            message,
+            inputLabel: 'Alasan',
+            placeholder: 'Tuliskan alasan secara jelas...',
+            confirmLabel,
+            tone: 'danger',
+        });
+
+        if (!reason) return;
+
+        post(action, { reason });
     };
 
     const submittedProof = order.payment_proofs?.find(proof => proof.status === 'submitted');
@@ -82,24 +114,29 @@ export default function OrderDetail({ order }: Props) {
                     {submittedProof && (
                         <div className="rounded-xl border border-border bg-white p-5">
                             <h3 className="mb-3 font-bold">Bukti Pembayaran</h3>
+                            <div className="mb-3 rounded-lg bg-primary-light p-3">
+                                <p className="text-xs font-bold uppercase tracking-wide text-primary">Nominal transfer</p>
+                                <p className="mt-1 text-xl font-extrabold tabular-nums">{formatRupiah(submittedProof.amount_idr)}</p>
+                                <p className="text-xs text-text-secondary">Minimum DP yang diwajibkan adalah 50% dari total pesanan.</p>
+                            </div>
                             <a href={'/merchant/payment-proof/' + submittedProof.id} target="_blank" rel="noreferrer" className="block rounded-lg bg-primary-light px-4 py-2 text-center text-sm font-bold text-primary">
                                 Lihat {submittedProof.original_name || 'bukti'}
                             </a>
                             <div className="mt-3 grid grid-cols-2 gap-2">
-                                <button onClick={() => post('payment/approve')} className="rounded-lg bg-primary px-3 py-2 text-sm font-bold text-white">Terima</button>
-                                <button onClick={() => askReason('payment/reject', 'Alasan penolakan bukti:')} className="rounded-lg bg-error-light px-3 py-2 text-sm font-bold text-error">Tolak</button>
+                                <button onClick={() => confirmPost('payment/approve', 'Terima bukti pembayaran?', `${formatRupiah(submittedProof.amount_idr)} akan diverifikasi sebagai DP/pembayaran dan pelanggan akan diberi tahu.`, 'Terima pembayaran', 'success')} className="rounded-lg bg-primary px-3 py-2 text-sm font-bold text-white">Terima</button>
+                                <button onClick={() => askReason('payment/reject', 'Tolak bukti pembayaran?', 'Jelaskan bagian bukti pembayaran yang perlu diperbaiki pelanggan.', 'Tolak bukti')} className="rounded-lg bg-error-light px-3 py-2 text-sm font-bold text-error">Tolak</button>
                             </div>
                         </div>
                     )}
 
                     <div className="grid gap-2 rounded-xl border border-border bg-white p-5">
                         {order.order_status === 'pending_confirmation' && <>
-                            <button onClick={() => post('accept')} className="rounded-lg bg-primary py-2 font-bold text-white">Terima pesanan</button>
-                            <button onClick={() => askReason('reject', 'Alasan penolakan:')} className="rounded-lg border border-error py-2 font-bold text-error">Tolak pesanan</button>
+                            <button onClick={() => confirmPost('accept', 'Terima pesanan?', 'Pelanggan akan mendapat notifikasi untuk melanjutkan pembayaran.', 'Terima pesanan', 'success')} className="rounded-lg bg-primary py-2 font-bold text-white">Terima pesanan</button>
+                            <button onClick={() => askReason('reject', 'Tolak pesanan?', 'Jelaskan alasan penolakan agar pelanggan dapat memahami keputusan Anda.', 'Tolak pesanan')} className="rounded-lg border border-error py-2 font-bold text-error">Tolak pesanan</button>
                         </>}
-                        {order.order_status === 'accepted' && order.payment_status === 'paid' && <button onClick={() => post('prepare')} className="rounded-lg bg-primary py-2 font-bold text-white">Mulai produksi</button>}
-                        {order.order_status === 'preparing' && <button onClick={() => post('deliver')} className="rounded-lg bg-primary py-2 font-bold text-white">Kirim pesanan</button>}
-                        {order.order_status === 'accepted' && order.payment_status === 'unpaid' && <button onClick={() => askReason('cancel', 'Alasan pembatalan:')} className="rounded-lg border border-error py-2 font-bold text-error">Batalkan pesanan</button>}
+                        {order.order_status === 'accepted' && order.payment_status === 'paid' && <button onClick={() => confirmPost('prepare', 'Mulai produksi?', 'DP minimum 50% sudah terverifikasi. Status pesanan akan berubah menjadi sedang dipersiapkan.', 'Mulai produksi')} className="rounded-lg bg-primary py-2 font-bold text-white">Mulai produksi</button>}
+                        {order.order_status === 'preparing' && <button onClick={() => confirmPost('deliver', 'Kirim pesanan?', 'Pastikan seluruh pesanan lengkap sebelum memulai pengiriman.', 'Mulai pengiriman')} className="rounded-lg bg-primary py-2 font-bold text-white">Kirim pesanan</button>}
+                        {order.order_status === 'accepted' && order.payment_status === 'unpaid' && <button onClick={() => askReason('cancel', 'Batalkan pesanan?', 'Pembatalan akan melepas kapasitas dan memberi tahu pelanggan.', 'Batalkan pesanan')} className="rounded-lg border border-error py-2 font-bold text-error">Batalkan pesanan</button>}
                     </div>
                 </aside>
             </div>

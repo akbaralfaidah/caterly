@@ -1,5 +1,6 @@
 ﻿import { Head, Link, router, useForm } from '@inertiajs/react';
 import GuestLayout from '@/Layouts/GuestLayout';
+import { useInteractiveDialog } from '@/Components/InteractiveDialog';
 import { PageProps, OrderData, ORDER_STATUS_LABELS, PAYMENT_STATUS_LABELS, formatRupiah, formatDateTime, formatDate } from '@/types';
 import { FormEvent, useRef } from 'react';
 
@@ -9,11 +10,14 @@ interface Props extends PageProps {
 
 export default function OrderDetail({ order }: Props) {
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const { confirm: confirmDialog } = useInteractiveDialog();
     const paymentProofs = order.payment_proofs ?? [];
     const hasSubmittedProof = paymentProofs.some((proof) => proof.status === 'submitted');
     const rejectedProofs = paymentProofs.filter((proof) => proof.status === 'rejected');
+    const minimumDeposit = Math.ceil(order.total_idr / 2);
     
     const { data, setData, post, processing, errors } = useForm({
+        amount_idr: minimumDeposit.toString(),
         proof: null as File | null,
     });
 
@@ -31,16 +35,30 @@ export default function OrderDetail({ order }: Props) {
         }
     };
 
-    const cancelOrder = () => {
-        if (confirm('Apakah Anda yakin ingin membatalkan pesanan ini?')) {
-            router.post(`/customer/orders/${order.id}/cancel`, {}, { preserveScroll: true });
-        }
+    const cancelOrder = async () => {
+        const confirmed = await confirmDialog({
+            title: 'Batalkan pesanan?',
+            message: 'Pesanan yang dibatalkan tidak dapat dipulihkan dan kapasitas katering akan dilepas.',
+            confirmLabel: 'Batalkan pesanan',
+            tone: 'danger',
+        });
+
+        if (!confirmed) return;
+
+        router.post(`/customer/orders/${order.id}/cancel`, {}, { preserveScroll: true });
     };
 
-    const confirmReceived = () => {
-        if (confirm('Konfirmasi bahwa pesanan sudah Anda terima dengan baik?')) {
-            router.post(`/customer/orders/${order.id}/confirm-received`, {}, { preserveScroll: true });
-        }
+    const confirmReceived = async () => {
+        const confirmed = await confirmDialog({
+            title: 'Pesanan sudah diterima?',
+            message: 'Konfirmasi ini akan menyelesaikan pesanan dan memperbarui status untuk katering.',
+            confirmLabel: 'Ya, sudah diterima',
+            tone: 'success',
+        });
+
+        if (!confirmed) return;
+
+        router.post(`/customer/orders/${order.id}/confirm-received`, {}, { preserveScroll: true });
     };
 
     const uploadPayment = (e: FormEvent) => {
@@ -166,11 +184,38 @@ export default function OrderDetail({ order }: Props) {
                                 {order.payment_status === 'unpaid' && order.order_status === 'accepted' && !hasSubmittedProof ? (
                                     <div className="space-y-4">
                                         <form onSubmit={uploadPayment} className="space-y-4">
-                                            <p className="text-sm text-text-secondary">Transfer sesuai total tagihan, lalu unggah bukti JPG, PNG, WebP, atau PDF maksimal 5 MB.</p>
+                                            <div className="rounded-xl border border-primary/20 bg-primary-light/40 p-4">
+                                                <p className="text-xs font-bold uppercase tracking-wide text-primary">Minimal DP 50%</p>
+                                                <p className="mt-1 text-2xl font-extrabold text-text-primary tabular-nums">{formatRupiah(minimumDeposit)}</p>
+                                                <p className="mt-1 text-xs text-text-secondary">Katering baru dapat memulai produksi setelah bukti pembayaran diverifikasi.</p>
+                                            </div>
                                             <div className="rounded-lg bg-surface p-3 text-sm">
                                                 <p className="font-bold">{order.bank_snapshot?.bank_name || 'Bank belum dicantumkan'}</p>
                                                 <p>{order.bank_snapshot?.bank_account_number}</p>
                                                 <p className="text-text-secondary">a.n. {order.bank_snapshot?.bank_account_name}</p>
+                                            </div>
+
+                                            <div>
+                                                <label className="mb-1.5 block text-sm font-semibold text-text-primary">Nominal yang ditransfer</label>
+                                                <input
+                                                    type="number"
+                                                    min={minimumDeposit}
+                                                    max={order.total_idr}
+                                                    step="1"
+                                                    value={data.amount_idr}
+                                                    onChange={e => setData('amount_idr', e.target.value)}
+                                                    className="h-11 w-full rounded-lg border border-border px-3 text-sm outline-none transition focus:border-primary focus:ring-4 focus:ring-primary/10"
+                                                    required
+                                                />
+                                                <div className="mt-2 grid grid-cols-2 gap-2">
+                                                    <button type="button" onClick={() => setData('amount_idr', minimumDeposit.toString())} className="rounded-lg border border-primary/30 bg-primary-light px-3 py-2 text-xs font-bold text-primary">
+                                                        Pilih DP 50%
+                                                    </button>
+                                                    <button type="button" onClick={() => setData('amount_idr', order.total_idr.toString())} className="rounded-lg border border-border bg-white px-3 py-2 text-xs font-bold text-text-primary">
+                                                        Bayar lunas
+                                                    </button>
+                                                </div>
+                                                {errors.amount_idr && <p className="mt-1 text-xs text-error">{errors.amount_idr}</p>}
                                             </div>
 
                                             <div>
@@ -197,7 +242,7 @@ export default function OrderDetail({ order }: Props) {
                                         {rejectedProofs.map(proof => (
                                             <div key={proof.id} className="text-sm p-3 border border-error/30 rounded-lg bg-error-light">
                                                 <p className="font-semibold mb-1">Bukti sebelumnya ditolak</p>
-                                                <p className="text-text-secondary">Upload: {formatDateTime(proof.created_at)}</p>
+                                                <p className="text-text-secondary">{formatRupiah(proof.amount_idr)} · {formatDateTime(proof.created_at)}</p>
                                                 {proof.rejection_reason && (
                                                     <p className="text-error mt-1 text-xs">Alasan: {proof.rejection_reason}</p>
                                                 )}
@@ -208,7 +253,7 @@ export default function OrderDetail({ order }: Props) {
                                     <div className="space-y-3">
                                         {paymentProofs.map(proof => (
                                             <div key={proof.id} className="text-sm p-3 border border-border rounded-lg bg-surface">
-                                                <p className="font-semibold mb-1">Upload: {formatDateTime(proof.created_at)}</p>
+                                                <p className="font-semibold mb-1">{formatRupiah(proof.amount_idr)} · {formatDateTime(proof.created_at)}</p>
                                                 <p className="text-text-secondary flex justify-between">
                                                     Status: <span className="font-medium text-text-primary">{proof.status === 'submitted' ? 'Menunggu Review' : proof.status === 'approved' ? 'Diterima' : 'Ditolak'}</span>
                                                 </p>

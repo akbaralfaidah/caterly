@@ -1,5 +1,6 @@
 ﻿import { Head, Link, router } from '@inertiajs/react';
 import MerchantLayout from '@/Layouts/MerchantLayout';
+import { useInteractiveDialog } from '@/Components/InteractiveDialog';
 import { PageProps, PaginatedData, OrderData, ORDER_STATUS_LABELS, PAYMENT_STATUS_LABELS, formatRupiah, formatDateTime, formatDate } from '@/types';
 
 interface Props extends PageProps {
@@ -7,6 +8,7 @@ interface Props extends PageProps {
 }
 
 export default function Orders({ orders }: Props) {
+    const { confirm: confirmDialog, prompt: promptDialog } = useInteractiveDialog();
     const getStatusColor = (status: string) => {
         switch (status) {
             case 'pending_confirmation': return 'bg-accent-light text-accent-dark border-accent-light';
@@ -21,10 +23,63 @@ export default function Orders({ orders }: Props) {
         }
     };
 
-    const action = (orderId: number, path: string, data: Record<string, string> = {}) => {
-        if (confirm('Apakah Anda yakin?')) {
-            router.post(`/merchant/orders/${orderId}/${path}`, data, { preserveScroll: true });
-        }
+    const actionMessages: Record<string, { title: string; message: string; confirmLabel: string; tone?: 'primary' | 'success' }> = {
+        accept: {
+            title: 'Terima pesanan?',
+            message: 'Pelanggan akan mendapat notifikasi untuk melanjutkan pembayaran.',
+            confirmLabel: 'Terima pesanan',
+            tone: 'success',
+        },
+        prepare: {
+            title: 'Mulai produksi?',
+            message: 'Status pesanan akan berubah menjadi sedang dipersiapkan.',
+            confirmLabel: 'Mulai produksi',
+        },
+        deliver: {
+            title: 'Kirim pesanan?',
+            message: 'Pastikan pesanan sudah lengkap sebelum mengubah status menjadi dikirim.',
+            confirmLabel: 'Mulai pengiriman',
+        },
+        'payment/approve': {
+            title: 'Terima bukti pembayaran?',
+            message: 'Nominal transfer akan diverifikasi sebagai DP/pembayaran dan pelanggan akan menerima notifikasi.',
+            confirmLabel: 'Terima pembayaran',
+            tone: 'success',
+        },
+    };
+
+    const action = async (orderId: number, path: string, data: Record<string, string> = {}) => {
+        const copy = actionMessages[path] ?? {
+            title: 'Lanjutkan tindakan?',
+            message: 'Pastikan data sudah benar sebelum melanjutkan.',
+            confirmLabel: 'Lanjutkan',
+        };
+        const confirmed = await confirmDialog(copy);
+
+        if (!confirmed) return;
+
+        router.post(`/merchant/orders/${orderId}/${path}`, data, { preserveScroll: true });
+    };
+
+    const reasonAction = async (
+        orderId: number,
+        path: string,
+        title: string,
+        message: string,
+        confirmLabel: string,
+    ) => {
+        const reason = await promptDialog({
+            title,
+            message,
+            inputLabel: 'Alasan',
+            placeholder: 'Tuliskan alasan secara jelas...',
+            confirmLabel,
+            tone: 'danger',
+        });
+
+        if (!reason) return;
+
+        router.post(`/merchant/orders/${orderId}/${path}`, { reason }, { preserveScroll: true });
     };
 
     return (
@@ -109,10 +164,16 @@ export default function Orders({ orders }: Props) {
                                         <button onClick={() => action(order.id, 'accept')} className="w-full py-2 bg-primary text-white text-sm font-semibold rounded-lg hover:bg-primary-dark transition-colors">
                                             Terima Pesanan
                                         </button>
-                                        <button onClick={() => {
-                                            const reason = prompt('Alasan penolakan?');
-                                            if (reason) action(order.id, 'reject', { reason });
-                                        }} className="w-full py-2 bg-white text-error border border-error text-sm font-semibold rounded-lg hover:bg-error-light transition-colors">
+                                        <button
+                                            onClick={() => reasonAction(
+                                                order.id,
+                                                'reject',
+                                                'Tolak pesanan?',
+                                                'Jelaskan alasan penolakan agar pelanggan dapat memahami keputusan Anda.',
+                                                'Tolak pesanan',
+                                            )}
+                                            className="w-full py-2 bg-white text-error border border-error text-sm font-semibold rounded-lg hover:bg-error-light transition-colors"
+                                        >
                                             Tolak Pesanan
                                         </button>
                                     </>
@@ -120,15 +181,21 @@ export default function Orders({ orders }: Props) {
 
                                 {order.order_status === 'accepted' && order.payment_status !== 'paid' && (
                                     <div className="text-center p-3 bg-accent-light text-accent-dark border border-accent rounded-lg text-sm font-medium">
-                                        Menunggu pelanggan melakukan pembayaran.
+                                        Menunggu DP minimum 50% dari pelanggan diverifikasi.
                                     </div>
                                 )}
 
                                 {order.order_status === 'accepted' && order.payment_status === 'unpaid' && (
-                                    <button onClick={() => {
-                                        const reason = prompt('Alasan pembatalan?');
-                                        if (reason) action(order.id, 'cancel', { reason });
-                                    }} className="w-full py-2 bg-white text-error border border-error text-sm font-semibold rounded-lg hover:bg-error-light transition-colors">
+                                    <button
+                                        onClick={() => reasonAction(
+                                            order.id,
+                                            'cancel',
+                                            'Batalkan pesanan?',
+                                            'Pembatalan akan melepas kapasitas dan memberi tahu pelanggan.',
+                                            'Batalkan pesanan',
+                                        )}
+                                        className="w-full py-2 bg-white text-error border border-error text-sm font-semibold rounded-lg hover:bg-error-light transition-colors"
+                                    >
                                         Batalkan Pesanan
                                     </button>
                                 )}
@@ -149,24 +216,32 @@ export default function Orders({ orders }: Props) {
                                     <div className="mt-2 pt-4 border-t border-border">
                                         <p className="text-sm font-semibold text-text-primary mb-2 text-center">Review Pembayaran</p>
                                         {order.payment_proofs?.filter(proof => proof.status === 'submitted').slice(-1).map(proof => (
-                                            <a
-                                                key={proof.id}
-                                                href={`/merchant/payment-proof/${proof.id}`}
-                                                target="_blank"
-                                                rel="noreferrer"
-                                                className="mb-2 block text-center text-xs font-bold text-primary underline"
-                                            >
-                                                Lihat {proof.original_name || 'bukti pembayaran'}
-                                            </a>
+                                            <div key={proof.id} className="mb-2 rounded-lg bg-white p-2 text-center">
+                                                <p className="text-sm font-extrabold text-primary tabular-nums">{formatRupiah(proof.amount_idr)}</p>
+                                                <a
+                                                    href={`/merchant/payment-proof/${proof.id}`}
+                                                    target="_blank"
+                                                    rel="noreferrer"
+                                                    className="mt-1 block text-xs font-bold text-primary underline"
+                                                >
+                                                    Lihat {proof.original_name || 'bukti pembayaran'}
+                                                </a>
+                                            </div>
                                         ))}
                                         <div className="flex gap-2">
                                             <button onClick={() => action(order.id, 'payment/approve')} className="flex-1 py-2 bg-primary-light text-primary text-xs font-semibold rounded hover:bg-primary hover:text-white transition-colors">
                                                 Terima Bukti
                                             </button>
-                                            <button onClick={() => {
-                                                const reason = prompt('Alasan penolakan?');
-                                                if (reason) action(order.id, 'payment/reject', { reason });
-                                            }} className="flex-1 py-2 bg-error-light text-error text-xs font-semibold rounded hover:bg-error hover:text-white transition-colors">
+                                            <button
+                                                onClick={() => reasonAction(
+                                                    order.id,
+                                                    'payment/reject',
+                                                    'Tolak bukti pembayaran?',
+                                                    'Jelaskan bagian bukti pembayaran yang perlu diperbaiki pelanggan.',
+                                                    'Tolak bukti',
+                                                )}
+                                                className="flex-1 py-2 bg-error-light text-error text-xs font-semibold rounded hover:bg-error hover:text-white transition-colors"
+                                            >
                                                 Tolak Bukti
                                             </button>
                                         </div>

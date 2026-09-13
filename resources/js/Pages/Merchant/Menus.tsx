@@ -1,5 +1,6 @@
 ﻿import { Head, useForm, router } from '@inertiajs/react';
 import MerchantLayout from '@/Layouts/MerchantLayout';
+import { useInteractiveDialog } from '@/Components/InteractiveDialog';
 import { PageProps, MenuItem, Category, formatRupiah } from '@/types';
 import { useState, useRef, FormEvent } from 'react';
 
@@ -12,6 +13,7 @@ export default function Menus({ menus, categories }: Props) {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingMenu, setEditingMenu] = useState<MenuItem | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const { confirm: confirmDialog } = useInteractiveDialog();
 
     const { data, setData, post, processing, errors, reset, clearErrors } = useForm({
         name: '',
@@ -71,10 +73,17 @@ export default function Menus({ menus, categories }: Props) {
         router.patch(`/merchant/menus/${menuId}/toggle`, {}, { preserveScroll: true });
     };
 
-    const deleteMenu = (menuId: number) => {
-        if (confirm('Apakah Anda yakin ingin menghapus menu ini?')) {
-            router.delete(`/merchant/menus/${menuId}`, { preserveScroll: true });
-        }
+    const deleteMenu = async (menuId: number) => {
+        const confirmed = await confirmDialog({
+            title: 'Hapus menu?',
+            message: 'Menu akan dihapus dari katalog dan tidak lagi dapat dipesan pelanggan.',
+            confirmLabel: 'Hapus menu',
+            tone: 'danger',
+        });
+
+        if (!confirmed) return;
+
+        router.delete(`/merchant/menus/${menuId}`, { preserveScroll: true });
     };
 
     return (

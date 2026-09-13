@@ -12,6 +12,7 @@ class PaymentProof extends Model
         'storage_path',
         'original_name',
         'mime_type',
+        'amount_idr',
         'status',
         'submitted_by',
         'reviewed_by',
@@ -21,7 +22,10 @@ class PaymentProof extends Model
 
     protected function casts(): array
     {
-        return ['reviewed_at' => 'datetime'];
+        return [
+            'amount_idr' => 'integer',
+            'reviewed_at' => 'datetime',
+        ];
     }
 
     public function order(): BelongsTo

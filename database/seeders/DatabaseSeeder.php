@@ -2,16 +2,16 @@
 
 namespace Database\Seeders;
 
-use App\Models\User;
-use App\Models\MerchantProfile;
-use App\Models\CustomerProfile;
-use App\Models\CustomerAddress;
-use App\Models\Region;
 use App\Models\Category;
+use App\Models\CustomerAddress;
+use App\Models\CustomerProfile;
 use App\Models\Menu;
-use App\Models\MerchantServiceArea;
-use App\Models\MerchantOperatingDay;
 use App\Models\MerchantDateCapacity;
+use App\Models\MerchantOperatingDay;
+use App\Models\MerchantProfile;
+use App\Models\MerchantServiceArea;
+use App\Models\Region;
+use App\Models\User;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
 
@@ -96,7 +96,9 @@ class DatabaseSeeder extends Seeder
         for ($i = 0; $i < 14; $i++) {
             $date = $today->copy()->addDays($i);
             $dow = $date->dayOfWeek;
-            if ($dow == 0 || $dow == 6) continue;
+            if ($dow == 0 || $dow == 6) {
+                continue;
+            }
             MerchantDateCapacity::create([
                 'merchant_id' => $merchant1->id,
                 'delivery_date' => $date->toDateString(),
@@ -195,7 +197,9 @@ class DatabaseSeeder extends Seeder
         for ($i = 0; $i < 14; $i++) {
             $date = $today->copy()->addDays($i);
             $dow = $date->dayOfWeek;
-            if ($dow == 0 || $dow == 6) continue;
+            if ($dow == 0 || $dow == 6) {
+                continue;
+            }
             MerchantDateCapacity::create([
                 'merchant_id' => $merchant2->id,
                 'delivery_date' => $date->toDateString(),
@@ -278,5 +282,7 @@ class DatabaseSeeder extends Seeder
             'address' => 'Jl. Hayam Wuruk No. 55, Kota Jambi',
             'is_default' => true,
         ]);
+
+        $this->call(DemoAccountsSeeder::class);
     }
 }

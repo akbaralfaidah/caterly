@@ -32,6 +32,7 @@ class ProfileController extends Controller
             ],
             'addresses' => $addresses,
             'regions' => $regions,
+            'requires_address' => $addresses->isEmpty(),
         ]);
     }
 

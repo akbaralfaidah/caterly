@@ -10,6 +10,8 @@ use App\Models\MerchantProfile;
 use App\Models\MerchantServiceArea;
 use App\Models\Region;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Validation\Rule;
@@ -30,6 +32,34 @@ class MarketplaceController extends Controller
             'sort' => ['nullable', Rule::in(['default', 'name_asc', 'price_asc', 'price_desc'])],
         ]);
 
+        $customerAddresses = null;
+        $requiresAddress = false;
+        $regions = Region::query()->orderBy('city_name')->get();
+
+        if ($request->user()?->isCustomer()) {
+            $customerAddresses = $request->user()->customerAddresses()
+                ->with('region')
+                ->orderByDesc('is_default')
+                ->orderBy('id')
+                ->get();
+            $requiresAddress = $customerAddresses->isEmpty();
+            $allowedRegionIds = $customerAddresses->pluck('region_id')->unique()->values();
+            $requestedRegionId = (int) ($filters['region_id'] ?? 0);
+            $defaultRegionId = (int) ($customerAddresses->firstWhere('is_default', true)?->region_id
+                ?? $customerAddresses->first()?->region_id
+                ?? 0);
+
+            $filters['region_id'] = $allowedRegionIds->contains($requestedRegionId)
+                ? $requestedRegionId
+                : ($defaultRegionId ?: null);
+            $regions = $customerAddresses
+                ->pluck('region')
+                ->filter()
+                ->unique('id')
+                ->sortBy('city_name')
+                ->values();
+        }
+
         $menuFilter = function (Builder $query) use ($filters): void {
             $query->where('is_active', true);
 
@@ -48,10 +78,16 @@ class MarketplaceController extends Controller
             ->with([
                 'user',
                 'serviceAreas.region',
-                'menus' => fn (Builder $query) => $menuFilter($query->with('category')),
+                'menus' => function (HasMany $relation) use ($menuFilter): void {
+                    $query = $relation->getQuery()->with('category');
+
+                    $menuFilter($query);
+                },
             ]);
 
-        if (! empty($filters['region_id'])) {
+        if ($request->user()?->isCustomer() && $requiresAddress) {
+            $query->whereRaw('1 = 0');
+        } elseif (! empty($filters['region_id'])) {
             $query->whereHas(
                 'serviceAreas',
                 fn (Builder $areaQuery) => $areaQuery->where('region_id', $filters['region_id']),
@@ -111,8 +147,9 @@ class MarketplaceController extends Controller
 
         return Inertia::render('Marketplace/Index', [
             'merchants' => $merchants,
-            'regions' => Region::query()->orderBy('city_name')->get(),
+            'regions' => $regions,
             'categories' => Category::query()->orderBy('name')->get(),
+            'requires_address' => $requiresAddress,
             'filters' => [
                 'region_id' => $filters['region_id'] ?? null,
                 'delivery_date' => $filters['delivery_date'] ?? null,
@@ -125,13 +162,47 @@ class MarketplaceController extends Controller
         ]);
     }
 
-    public function show(Request $request, int $merchant): Response
+    public function show(Request $request, int $merchant): Response|RedirectResponse
     {
-        $profile = MerchantProfile::query()
+        $selectedRegionId = null;
+
+        if ($request->user()?->isCustomer()) {
+            $addresses = $request->user()->customerAddresses()
+                ->orderByDesc('is_default')
+                ->orderBy('id')
+                ->get();
+
+            if ($addresses->isEmpty()) {
+                return redirect()->route('customer.profile')
+                    ->with('error', 'Tambahkan alamat perusahaan sebelum memilih katering.');
+            }
+
+            $requestedRegionId = $request->integer('region_id');
+            $selectedRegionId = $addresses->contains('region_id', $requestedRegionId)
+                ? $requestedRegionId
+                : (int) ($addresses->firstWhere('is_default', true)?->region_id ?? $addresses->first()->region_id);
+        }
+
+        $profileQuery = MerchantProfile::query()
             ->where('user_id', $merchant)
             ->where('publication_status', 'published')
-            ->with(['user', 'serviceAreas.region', 'operatingDays'])
-            ->firstOrFail();
+            ->with(['user', 'serviceAreas.region', 'operatingDays']);
+
+        if ($selectedRegionId) {
+            $profileQuery->whereHas(
+                'serviceAreas',
+                fn (Builder $query) => $query->where('region_id', $selectedRegionId),
+            );
+        }
+
+        $profile = $profileQuery->first();
+
+        if (! $profile && $request->user()?->isCustomer()) {
+            return redirect()->route('marketplace.index', ['region_id' => $selectedRegionId])
+                ->with('error', 'Katering tersebut tidak melayani area alamat perusahaan yang dipilih.');
+        }
+
+        abort_unless($profile, 404);
         $menus = Menu::query()
             ->where('merchant_id', $merchant)
             ->where('is_active', true)
@@ -187,6 +258,7 @@ class MarketplaceController extends Controller
             ]),
             'categories' => Category::query()->orderBy('name')->get(),
             'regions' => Region::query()->orderBy('city_name')->get(),
+            'selected_region_id' => $selectedRegionId,
             'cart' => $cart ? [
                 'id' => $cart->id,
                 'merchant_id' => $cart->merchant_id,
@@ -223,10 +295,6 @@ class MarketplaceController extends Controller
 
         if ($deliveryDate->isAfter(today()->addDays(30))) {
             return ['available' => false, 'reason' => 'Melebihi batas pemesanan 30 hari'];
-        }
-
-        if (now()->greaterThanOrEqualTo($deliveryDate->copy()->subDay()->setTime(16, 0))) {
-            return ['available' => false, 'reason' => 'Melewati batas pemesanan pukul 16.00 WIB pada H-1'];
         }
 
         $isOperating = MerchantOperatingDay::query()

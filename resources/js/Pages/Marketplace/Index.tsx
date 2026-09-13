@@ -9,6 +9,7 @@ interface Props extends PageProps {
     merchants: PaginatedData<MerchantCard>;
     regions: Region[];
     categories: Category[];
+    requires_address: boolean;
     filters: {
         region_id: number | null;
         delivery_date: string | null;
@@ -20,7 +21,7 @@ interface Props extends PageProps {
     };
 }
 
-export default function MarketplaceIndex({ auth, merchants, regions, categories, filters }: Props) {
+export default function MarketplaceIndex({ auth, merchants, regions, categories, requires_address: requiresAddress, filters }: Props) {
     const { data, setData, get, processing } = useForm({
         region_id: filters.region_id?.toString() || '',
         delivery_date: filters.delivery_date || '',
@@ -64,7 +65,7 @@ export default function MarketplaceIndex({ auth, merchants, regions, categories,
                                 onChange={event => setData('region_id', event.target.value)}
                                 className="h-11 w-full rounded-lg border border-border bg-white pl-10 pr-3 outline-none focus:border-primary"
                             >
-                                <option value="">Semua area</option>
+                                <option value="">{auth.user?.role === 'customer' ? 'Pilih alamat perusahaan' : 'Semua area'}</option>
                                 {regions.map(region => <option key={region.id} value={region.id}>{region.city_name}</option>)}
                             </select>
                         </label>
@@ -127,6 +128,18 @@ export default function MarketplaceIndex({ auth, merchants, regions, categories,
             </section>
 
             <main className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
+                {requiresAddress && (
+                    <div className="mb-8 rounded-2xl border border-accent/40 bg-accent-light p-5 sm:flex sm:items-center sm:justify-between sm:gap-6">
+                        <div>
+                            <h2 className="font-extrabold text-accent-dark">Alamat perusahaan wajib dilengkapi</h2>
+                            <p className="mt-1 text-sm text-text-secondary">Tambahkan alamat agar kami hanya menampilkan katering yang melayani area perusahaan Anda.</p>
+                        </div>
+                        <Link href="/customer/profile" className="mt-4 inline-flex rounded-xl bg-accent px-5 py-3 text-sm font-bold text-white transition hover:-translate-y-0.5 hover:bg-accent-dark sm:mt-0">
+                            Tambah alamat
+                        </Link>
+                    </div>
+                )}
+
                 <div className="mb-8 flex items-end justify-between gap-4">
                     <div>
                         <h2 className="text-2xl font-extrabold text-text-primary">Katering Tersedia</h2>
@@ -138,12 +151,12 @@ export default function MarketplaceIndex({ auth, merchants, regions, categories,
                     <div className="rounded-2xl border border-dashed border-border bg-surface p-16 text-center">
                         <Utensils className="mx-auto text-text-secondary" size={36} />
                         <h3 className="mt-4 text-lg font-bold">Tidak ada katering ditemukan</h3>
-                        <p className="mt-1 text-text-secondary">Ubah atau kosongkan beberapa filter.</p>
+                        <p className="mt-1 text-text-secondary">{requiresAddress ? 'Lengkapi alamat perusahaan untuk melihat katering di area Anda.' : 'Ubah atau kosongkan beberapa filter.'}</p>
                     </div>
                 ) : (
                     <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
                         {merchants.data.map(merchant => (
-                            <Link key={merchant.id} href={'/marketplace/' + merchant.id} className="group overflow-hidden rounded-2xl border border-border bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-lg">
+                            <Link key={merchant.id} href={`/marketplace/${merchant.id}${filters.region_id ? `?region_id=${filters.region_id}` : ''}`} className="group overflow-hidden rounded-2xl border border-border bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-lg">
                                 <div className="bg-primary-light p-5">
                                     <h3 className="text-xl font-extrabold group-hover:text-primary">{merchant.company_name}</h3>
                                     <p className="mt-1 text-sm text-text-secondary">Minimal {merchant.minimum_portions} porsi</p>

@@ -47,7 +47,16 @@ class AddressController extends Controller
     {
         $this->ensureOwner($request, $address);
 
-        DB::transaction(function () use ($address, $request): void {
+        $deleted = DB::transaction(function () use ($address, $request): bool {
+            $addresses = CustomerAddress::query()
+                ->where('customer_id', $request->user()->id)
+                ->lockForUpdate()
+                ->get();
+
+            if ($addresses->count() === 1) {
+                return false;
+            }
+
             $lockedAddress = CustomerAddress::query()->lockForUpdate()->findOrFail($address->id);
             $wasDefault = $lockedAddress->is_default;
             $lockedAddress->delete();
@@ -60,7 +69,13 @@ class AddressController extends Controller
                     ->first()
                     ?->update(['is_default' => true]);
             }
+
+            return true;
         }, 3);
+
+        if (! $deleted) {
+            return back()->with('error', 'Perusahaan wajib memiliki minimal satu alamat pengiriman.');
+        }
 
         return back()->with('success', 'Alamat berhasil dihapus.');
     }
@@ -78,7 +93,9 @@ class AddressController extends Controller
             CustomerAddress::query()
                 ->where('customer_id', $request->user()->id)
                 ->update(['is_default' => false]);
-            $address->update(['is_default' => true]);
+            CustomerAddress::query()
+                ->whereKey($address->id)
+                ->update(['is_default' => true]);
         }, 3);
 
         return back()->with('success', 'Alamat utama berhasil diubah.');

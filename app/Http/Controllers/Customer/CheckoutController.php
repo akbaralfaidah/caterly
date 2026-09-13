@@ -102,11 +102,6 @@ class CheckoutController extends Controller
                     throw new DomainException('Tanggal pengiriman harus antara besok dan 30 hari ke depan.');
                 }
 
-                $cutoff = $deliveryDate->copy()->subDay()->setTime(16, 0);
-                if (now()->greaterThanOrEqualTo($cutoff)) {
-                    throw new DomainException('Batas pemesanan pukul 16.00 WIB pada H-1 telah lewat.');
-                }
-
                 $isOperating = MerchantOperatingDay::query()
                     ->where('merchant_id', $cart->merchant_id)
                     ->where('weekday', $deliveryDate->dayOfWeek)
@@ -162,7 +157,7 @@ class CheckoutController extends Controller
                 $subtotal = (int) $cart->items->sum(
                     fn ($item): int => $item->quantity * $item->menu->price_idr,
                 );
-                $expiresAt = now()->addHours(2)->min($cutoff);
+                $expiresAt = now()->addHours(2);
 
                 $order = Order::query()->create([
                     'order_number' => $this->uniqueNumber('CTR'),

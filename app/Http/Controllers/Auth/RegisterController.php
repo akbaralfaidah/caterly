@@ -66,6 +66,11 @@ class RegisterController extends Controller
         Auth::login($user);
         $request->session()->regenerate();
 
-        return redirect($user->isMerchant() ? '/merchant/dashboard' : '/marketplace');
+        if ($user->isCustomer()) {
+            return redirect()->route('customer.profile')
+                ->with('error', 'Tambahkan alamat perusahaan untuk melihat katering yang melayani area Anda.');
+        }
+
+        return redirect('/merchant/dashboard');
     }
 }

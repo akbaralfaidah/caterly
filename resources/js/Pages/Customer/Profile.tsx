@@ -1,5 +1,6 @@
 ﻿import { Head, useForm, router } from '@inertiajs/react';
 import GuestLayout from '@/Layouts/GuestLayout';
+import { useInteractiveDialog } from '@/Components/InteractiveDialog';
 import { PageProps, Address, Region } from '@/types';
 import { FormEvent, useState } from 'react';
 
@@ -12,11 +13,13 @@ interface Props extends PageProps {
     };
     addresses: Address[];
     regions: Region[];
+    requires_address: boolean;
 }
 
-export default function Profile({ profile, addresses, regions }: Props) {
+export default function Profile({ profile, addresses, regions, requires_address: requiresAddress }: Props) {
     const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
     const [editingAddress, setEditingAddress] = useState<Address | null>(null);
+    const { confirm: confirmDialog } = useInteractiveDialog();
 
     const { data: profileData, setData: setProfileData, patch: updateProfile, processing: profileProcessing, errors: profileErrors } = useForm({
         company_name: profile.company_name || '',
@@ -77,10 +80,17 @@ export default function Profile({ profile, addresses, regions }: Props) {
         router.post(`/customer/addresses/${id}/default`, {}, { preserveScroll: true });
     };
 
-    const deleteAddress = (id: number) => {
-        if (confirm('Yakin ingin menghapus alamat ini?')) {
-            router.delete(`/customer/addresses/${id}`, { preserveScroll: true });
-        }
+    const deleteAddress = async (id: number) => {
+        const confirmed = await confirmDialog({
+            title: 'Hapus alamat?',
+            message: 'Alamat ini akan dihapus dari daftar tujuan pengiriman Anda.',
+            confirmLabel: 'Hapus alamat',
+            tone: 'danger',
+        });
+
+        if (!confirmed) return;
+
+        router.delete(`/customer/addresses/${id}`, { preserveScroll: true });
     };
 
     return (
@@ -92,6 +102,16 @@ export default function Profile({ profile, addresses, regions }: Props) {
                     <h1 className="text-2xl sm:text-3xl font-bold text-text-primary mb-2">Profil & Alamat Kantor</h1>
                     <p className="text-text-secondary">Kelola informasi perusahaan dan tujuan pengiriman pesanan Anda.</p>
                 </div>
+
+                {requiresAddress && (
+                    <div className="mb-8 rounded-2xl border border-accent/40 bg-accent-light p-5">
+                        <p className="font-extrabold text-accent-dark">Satu langkah lagi sebelum memilih katering</p>
+                        <p className="mt-1 text-sm text-text-secondary">Tambahkan minimal satu alamat perusahaan. Marketplace akan otomatis menampilkan katering sesuai kota alamat utama Anda.</p>
+                        <button onClick={() => openAddressModal()} className="mt-4 rounded-xl bg-accent px-5 py-2.5 text-sm font-bold text-white transition hover:-translate-y-0.5 hover:bg-accent-dark">
+                            Tambah alamat sekarang
+                        </button>
+                    </div>
+                )}
 
                 <div className="grid lg:grid-cols-5 gap-8">
                     {/* Profil Form */}

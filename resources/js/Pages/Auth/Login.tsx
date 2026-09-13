@@ -1,9 +1,10 @@
 import { Head, Link, useForm } from '@inertiajs/react';
-import { FormEvent } from 'react';
-import { ArrowRight, Lock, Mail } from 'lucide-react';
+import { FormEvent, useState } from 'react';
+import { ArrowRight, Eye, EyeOff, Lock, Mail } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export default function Login() {
+    const [showPassword, setShowPassword] = useState(false);
     const { data, setData, post, processing, errors } = useForm({
         email: '',
         password: '',
@@ -25,7 +26,7 @@ export default function Login() {
                     <div className="absolute top-8 left-8 lg:top-12 lg:left-12">
                         <img src="/img/logo-caterly.svg" alt="Caterly" className="h-10" />
                     </div>
-                    
+
                     <div className="w-full max-w-[400px] mx-auto mt-16 lg:mt-0">
                         <div className="mb-10 text-center lg:text-left">
                             <h1 className="text-3xl font-extrabold text-text-primary tracking-tight mb-3">Selamat Datang Kembali</h1>
@@ -57,12 +58,21 @@ export default function Login() {
                                         <Lock size={20} strokeWidth={1.5} />
                                     </div>
                                     <input
-                                        type="password"
+                                        type={showPassword ? 'text' : 'password'}
                                         value={data.password}
                                         onChange={e => setData('password', e.target.value)}
-                                        className="w-full pl-12 pr-4 py-3.5 rounded-xl border border-border bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors outline-none"
+                                        className="w-full rounded-xl border border-border bg-white py-3.5 pl-12 pr-12 outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/20"
                                         placeholder="••••••••"
                                     />
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowPassword(value => !value)}
+                                        className="absolute inset-y-0 right-0 flex items-center px-4 text-text-secondary transition hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
+                                        aria-label={showPassword ? 'Sembunyikan password' : 'Tampilkan password'}
+                                        aria-pressed={showPassword}
+                                    >
+                                        {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                                    </button>
                                 </div>
                                 {errors.password && <p className="text-error text-sm mt-1">{errors.password}</p>}
                             </div>
@@ -76,7 +86,7 @@ export default function Login() {
                                 <ArrowRight size={20} />
                             </button>
                         </form>
-                        
+
                         <p className="mt-8 text-center text-text-secondary text-sm">
                             Belum punya akun?{' '}
                             <Link href="/register" className="font-bold text-primary hover:underline">
@@ -88,13 +98,13 @@ export default function Login() {
 
                 {/* Right side - Image with Glassmorphism Overlay */}
                 <div className="hidden lg:block lg:w-[55%] relative overflow-hidden bg-gray-900">
-                    <img 
-                        src="https://images.unsplash.com/photo-1505935428862-770b6f24f629?q=80&w=2067&auto=format&fit=crop" 
-                        alt="Catering Service" 
+                    <img
+                        src="https://images.unsplash.com/photo-1505935428862-770b6f24f629?q=80&w=2067&auto=format&fit=crop"
+                        alt="Catering Service"
                         className="absolute inset-0 w-full h-full object-cover opacity-70"
                     />
                     <div className="absolute inset-0 bg-gradient-to-tr from-primary/90 to-transparent mix-blend-multiply"></div>
-                    
+
                     <div className="absolute inset-0 flex items-center justify-center p-12">
                         <div className="glass-dark p-10 rounded-3xl max-w-lg">
                             <h2 className="text-3xl font-extrabold text-white mb-4 leading-tight">Solusi Katering Terpercaya untuk Karyawan Anda</h2>
@@ -104,8 +114,8 @@ export default function Login() {
                             <div className="flex items-center gap-4">
                                 <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center font-bold text-white">AH</div>
                                 <div>
-                                    <div className="font-bold text-white">Arif Hidayat</div>
-                                    <div className="text-white/60 text-sm">HR Manager, PT Teknologi Maju</div>
+                                    <div className="font-bold text-white">Akbar Alfaidah</div>
+                                    <div className="text-white/60 text-sm">Manager, PT Teknologi Maju</div>
                                 </div>
                             </div>
                         </div>

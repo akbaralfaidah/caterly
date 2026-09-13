@@ -1,5 +1,6 @@
 import { Head, Link, router } from '@inertiajs/react';
 import GuestLayout from '@/Layouts/GuestLayout';
+import { useInteractiveDialog } from '@/Components/InteractiveDialog';
 import { PageProps, MenuItem, Region, CartData } from '@/types';
 import { useState } from 'react';
 import { MapPin, Clock, Calendar, Utensils, Minus, Plus, ShoppingCart, Info, Store, Users } from 'lucide-react';
@@ -18,10 +19,12 @@ interface Props extends PageProps {
     };
     menus: MenuItem[];
     cart: CartData | null;
+    selected_region_id: number | null;
 }
 
-export default function MerchantDetail({ auth, merchant, menus, cart }: Props) {
+export default function MerchantDetail({ auth, merchant, menus, cart, selected_region_id: selectedRegionId }: Props) {
     const [selectedDate, setSelectedDate] = useState(cart?.delivery_date || '');
+    const { confirm: confirmDialog } = useInteractiveDialog();
     
     // Manage quantities locally before adding to cart
     const [quantities, setQuantities] = useState<Record<number, number>>({});
@@ -34,7 +37,7 @@ export default function MerchantDetail({ auth, merchant, menus, cart }: Props) {
         });
     };
 
-    const addToCart = (menuId: number) => {
+    const addToCart = async (menuId: number) => {
         if (!auth.user) {
             toast.error('Silakan masuk (login) terlebih dahulu untuk memesan.');
             router.get('/login');
@@ -57,19 +60,30 @@ export default function MerchantDetail({ auth, merchant, menus, cart }: Props) {
         }
 
         const replaceCart = Boolean(cart && cart.merchant_id !== merchant.id);
-        if (replaceCart && !confirm('Keranjang Anda berisi menu dari ' + cart?.merchant_name + '. Ganti seluruh keranjang?')) {
-            return;
+        if (replaceCart) {
+            const confirmed = await confirmDialog({
+                title: 'Ganti isi keranjang?',
+                message: `Keranjang Anda berisi menu dari ${cart?.merchant_name}. Seluruh isinya akan diganti dengan menu dari ${merchant.company_name}.`,
+                confirmLabel: 'Ganti keranjang',
+                tone: 'warning',
+            });
+
+            if (!confirmed) return;
         }
 
         router.post('/customer/cart/add', {
             menu_id: menuId,
             quantity: quantity,
             delivery_date: selectedDate,
+            region_id: selectedRegionId,
             replace_cart: replaceCart,
         }, {
             preserveScroll: true,
-            onSuccess: () => {
-                toast.success('Berhasil ditambahkan ke keranjang!');
+            onSuccess: (page) => {
+                const flash = page.props.flash as PageProps['flash'] | undefined;
+
+                if (flash?.error) return;
+
                 setQuantities(prev => ({ ...prev, [menuId]: 0 }));
             },
             onError: (errors) => {
@@ -122,7 +136,7 @@ export default function MerchantDetail({ auth, merchant, menus, cart }: Props) {
                             </div>
                             <div className="flex items-center gap-2 text-text-secondary">
                                 <Clock size={18} className="text-info" />
-                                <span className="font-medium text-sm">H-1 Pemesanan</span>
+                                <span className="font-medium text-sm">Waktu Fleksibel</span>
                             </div>
                         </div>
                     </div>
@@ -264,7 +278,7 @@ export default function MerchantDetail({ auth, merchant, menus, cart }: Props) {
                             <div className="mt-6 bg-info-light/50 rounded-xl p-3 flex gap-2 border border-info/20">
                                 <Info size={16} className="text-info shrink-0 mt-0.5" />
                                 <p className="text-xs text-info leading-relaxed">
-                                    Pemesanan minimal {merchant.minimum_portions} porsi untuk katering ini. Pemesanan harus dilakukan H-1 sebelum jam 16:00.
+                                    Pemesanan minimal {merchant.minimum_portions} porsi untuk katering ini. Pesanan dapat dibuat kapan saja selama tanggal pengiriman masih tersedia.
                                 </p>
                             </div>
                         </div>

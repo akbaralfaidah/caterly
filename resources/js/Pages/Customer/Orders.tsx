@@ -1,5 +1,6 @@
 ﻿import { Head, Link } from '@inertiajs/react';
 import GuestLayout from '@/Layouts/GuestLayout';
+import { useInteractiveDialog } from '@/Components/InteractiveDialog';
 import { router } from '@inertiajs/react';
 import { PageProps, PaginatedData, OrderData, ORDER_STATUS_LABELS, PAYMENT_STATUS_LABELS, formatRupiah, formatDateTime, formatDate } from '@/types';
 
@@ -8,10 +9,40 @@ interface Props extends PageProps {
 }
 
 export default function Orders({ orders }: Props) {
-    const reorder = (orderId: number) => {
-        const suggestedDate = new Date(Date.now() + 2 * 86400000).toISOString().slice(0, 10);
-        const deliveryDate = prompt('Tanggal pengiriman baru (YYYY-MM-DD):', suggestedDate);
-        if (!deliveryDate || !confirm('Keranjang aktif akan diganti dengan menu pesanan ini. Lanjutkan?')) return;
+    const { confirm: confirmDialog, prompt: promptDialog } = useInteractiveDialog();
+
+    const reorder = async (orderId: number) => {
+        const formatInputDate = (date: Date) => [
+            date.getFullYear(),
+            String(date.getMonth() + 1).padStart(2, '0'),
+            String(date.getDate()).padStart(2, '0'),
+        ].join('-');
+        const minimumDate = new Date();
+        const suggestedDate = new Date();
+        const maximumDate = new Date();
+        minimumDate.setDate(minimumDate.getDate() + 1);
+        suggestedDate.setDate(suggestedDate.getDate() + 2);
+        maximumDate.setDate(maximumDate.getDate() + 30);
+
+        const deliveryDate = await promptDialog({
+            title: 'Pesan menu ini lagi',
+            message: 'Pilih tanggal pengiriman baru untuk pesanan Anda.',
+            inputLabel: 'Tanggal pengiriman',
+            inputType: 'date',
+            defaultValue: formatInputDate(suggestedDate),
+            min: formatInputDate(minimumDate),
+            max: formatInputDate(maximumDate),
+            confirmLabel: 'Pilih tanggal',
+        });
+        if (!deliveryDate) return;
+
+        const confirmed = await confirmDialog({
+            title: 'Ganti keranjang aktif?',
+            message: 'Isi keranjang saat ini akan diganti dengan menu dari pesanan ini.',
+            confirmLabel: 'Ya, pesan lagi',
+            tone: 'warning',
+        });
+        if (!confirmed) return;
 
         router.post('/customer/orders/' + orderId + '/reorder', {
             delivery_date: deliveryDate,

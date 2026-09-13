@@ -23,14 +23,14 @@ class LoginController extends Controller
         ]);
 
         // Rate limiting
-        $throttleKey = strtolower($request->input('email')) . '|' . $request->ip();
+        $throttleKey = strtolower($request->input('email')).'|'.$request->ip();
         if (app('Illuminate\Cache\RateLimiter')->tooManyAttempts($throttleKey, 5)) {
             throw ValidationException::withMessages([
                 'email' => 'Terlalu banyak percobaan login. Silakan coba lagi nanti.',
             ]);
         }
 
-        if (!Auth::attempt($request->only('email', 'password'), $request->boolean('remember'))) {
+        if (! Auth::attempt($request->only('email', 'password'), $request->boolean('remember'))) {
             app('Illuminate\Cache\RateLimiter')->hit($throttleKey, 60);
             throw ValidationException::withMessages([
                 'email' => 'Email atau password salah.',
@@ -41,6 +41,12 @@ class LoginController extends Controller
         $request->session()->regenerate();
 
         $user = Auth::user();
+
+        if ($user->isCustomer() && ! $user->customerAddresses()->exists()) {
+            return redirect()->route('customer.profile')
+                ->with('error', 'Tambahkan alamat perusahaan terlebih dahulu agar katering di area Anda dapat ditampilkan.');
+        }
+
         $redirect = $user->isMerchant() ? '/merchant/dashboard' : '/marketplace';
 
         return redirect()->intended($redirect);
@@ -51,6 +57,7 @@ class LoginController extends Controller
         Auth::guard('web')->logout();
         $request->session()->invalidate();
         $request->session()->regenerateToken();
+
         return redirect('/');
     }
 }

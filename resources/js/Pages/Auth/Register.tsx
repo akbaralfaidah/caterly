@@ -1,9 +1,11 @@
 import { Head, Link, useForm } from '@inertiajs/react';
-import { FormEvent } from 'react';
-import { Building2, ChefHat, ArrowRight } from 'lucide-react';
+import { FormEvent, useState } from 'react';
+import { Building2, ChefHat, ArrowRight, Eye, EyeOff } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export default function Register() {
+    const [showPassword, setShowPassword] = useState(false);
+    const [showConfirmation, setShowConfirmation] = useState(false);
     const { data, setData, post, processing, errors } = useForm({
         name: '',
         email: '',
@@ -131,23 +133,33 @@ export default function Register() {
                                 <div className="grid grid-cols-2 gap-4">
                                     <div>
                                         <label className="block text-sm font-semibold text-text-primary mb-1">Password</label>
-                                        <input
-                                            type="password"
-                                            value={data.password}
-                                            onChange={e => setData('password', e.target.value)}
-                                            className="w-full px-4 py-3 rounded-xl border border-border bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors outline-none"
-                                        />
+                                        <div className="relative">
+                                            <input
+                                                type={showPassword ? 'text' : 'password'}
+                                                value={data.password}
+                                                onChange={e => setData('password', e.target.value)}
+                                                className="w-full rounded-xl border border-border bg-white py-3 pl-4 pr-12 outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/20"
+                                            />
+                                            <button type="button" onClick={() => setShowPassword(value => !value)} className="absolute inset-y-0 right-0 flex items-center px-4 text-text-secondary transition hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30" aria-label={showPassword ? 'Sembunyikan password' : 'Tampilkan password'} aria-pressed={showPassword}>
+                                                {showPassword ? <EyeOff size={19} /> : <Eye size={19} />}
+                                            </button>
+                                        </div>
                                         {errors.password && <p className="text-error text-sm mt-1">{errors.password}</p>}
                                     </div>
 
                                     <div>
                                         <label className="block text-sm font-semibold text-text-primary mb-1">Konfirmasi</label>
-                                        <input
-                                            type="password"
-                                            value={data.password_confirmation}
-                                            onChange={e => setData('password_confirmation', e.target.value)}
-                                            className="w-full px-4 py-3 rounded-xl border border-border bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors outline-none"
-                                        />
+                                        <div className="relative">
+                                            <input
+                                                type={showConfirmation ? 'text' : 'password'}
+                                                value={data.password_confirmation}
+                                                onChange={e => setData('password_confirmation', e.target.value)}
+                                                className="w-full rounded-xl border border-border bg-white py-3 pl-4 pr-12 outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/20"
+                                            />
+                                            <button type="button" onClick={() => setShowConfirmation(value => !value)} className="absolute inset-y-0 right-0 flex items-center px-4 text-text-secondary transition hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30" aria-label={showConfirmation ? 'Sembunyikan konfirmasi password' : 'Tampilkan konfirmasi password'} aria-pressed={showConfirmation}>
+                                                {showConfirmation ? <EyeOff size={19} /> : <Eye size={19} />}
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
