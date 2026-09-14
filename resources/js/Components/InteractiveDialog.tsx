@@ -274,7 +274,7 @@ export function InteractiveDialogProvider({ children }: { children: ReactNode })
 
         return createPortal(
             <div
-                className="caterly-dialog-backdrop fixed inset-0 z-[10000] flex items-center justify-center overflow-y-auto bg-[#07130e]/60 p-4 backdrop-blur-sm sm:p-6"
+                className="caterly-dialog-backdrop fixed inset-0 z-[10000] flex max-w-[100vw] touch-pan-y items-center justify-center overflow-x-hidden overflow-y-auto overscroll-contain bg-[#07130e]/60 p-4 backdrop-blur-sm sm:p-6"
                 data-closing={isClosing}
                 onMouseDown={(event) => {
                     if (event.target === event.currentTarget && activeDialog.mode !== 'alert') {
@@ -286,14 +286,14 @@ export function InteractiveDialogProvider({ children }: { children: ReactNode })
                     aria-describedby={descriptionId}
                     aria-labelledby={titleId}
                     aria-modal="true"
-                    className="caterly-dialog-panel relative max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto rounded-3xl border border-white/70 bg-white shadow-[0_28px_90px_rgba(0,0,0,0.28)]"
+                    className="caterly-dialog-panel relative max-h-[calc(100dvh-2rem)] min-w-0 w-full max-w-[min(28rem,calc(100vw-2rem))] touch-pan-y overflow-x-hidden overflow-y-auto overscroll-contain rounded-3xl border border-white/70 bg-white shadow-[0_28px_90px_rgba(0,0,0,0.28)]"
                     data-closing={isClosing}
                     key={activeDialog.id}
                     ref={panelRef}
                     role={activeDialog.mode === 'alert' ? 'alertdialog' : 'dialog'}
                 >
                     <div className="pointer-events-none absolute -right-16 -top-16 size-40 rounded-full bg-primary/10 blur-3xl" />
-                    <form className="relative p-5 sm:p-7" onSubmit={handleSubmit}>
+                    <form className="relative min-w-0 p-5 sm:p-7" onSubmit={handleSubmit}>
                         <div className="flex items-start justify-between gap-4">
                             <div className={`flex size-12 shrink-0 items-center justify-center rounded-2xl ${styles.iconContainer}`}>
                                 <Icon aria-hidden="true" className="size-6" strokeWidth={2.25} />
@@ -311,10 +311,10 @@ export function InteractiveDialogProvider({ children }: { children: ReactNode })
                         </div>
 
                         <div className="mt-5">
-                            <h2 className="text-xl font-extrabold tracking-tight text-text-primary sm:text-2xl" id={titleId}>
+                            <h2 className="break-words text-xl font-extrabold tracking-tight text-text-primary [overflow-wrap:anywhere] sm:text-2xl" id={titleId}>
                                 {activeDialog.options.title}
                             </h2>
-                            <p className="mt-2 text-sm leading-6 text-text-secondary sm:text-[15px]" id={descriptionId}>
+                            <p className="mt-2 break-words text-sm leading-6 text-text-secondary [overflow-wrap:anywhere] sm:text-[15px]" id={descriptionId}>
                                 {activeDialog.options.message}
                             </p>
                         </div>

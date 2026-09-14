@@ -1,4 +1,4 @@
-﻿import { Head, useForm, router } from '@inertiajs/react';
+import { Head, useForm, router } from '@inertiajs/react';
 import MerchantLayout from '@/Layouts/MerchantLayout';
 import { useInteractiveDialog } from '@/Components/InteractiveDialog';
 import { PageProps, MenuItem, Category, formatRupiah, menuImageUrl } from '@/types';
@@ -13,7 +13,7 @@ export default function Menus({ menus, categories }: Props) {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingMenu, setEditingMenu] = useState<MenuItem | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
-    const { confirm: confirmDialog } = useInteractiveDialog();
+    const { alert: alertDialog, confirm: confirmDialog } = useInteractiveDialog();
 
     const { data, setData, post, processing, errors, reset, clearErrors } = useForm({
         name: '',
@@ -62,7 +62,12 @@ export default function Menus({ menus, categories }: Props) {
         if (!hasAllowedMimeType || !hasAllowedExtension) {
             setData('image', null);
             if (fileInputRef.current) fileInputRef.current.value = '';
-            toast.error('Foto menu hanya boleh berformat JPG, JPEG, PNG, atau WebP.');
+            void alertDialog({
+                title: 'Format foto tidak didukung',
+                message: 'Foto menu hanya boleh berformat JPG, JPEG, PNG, atau WebP.',
+                confirmLabel: 'Mengerti',
+                tone: 'warning',
+            });
 
             return;
         }
