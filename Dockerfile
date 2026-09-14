@@ -69,7 +69,8 @@ WORKDIR /app
 
 ENV APP_ENV=production \
     APP_DEBUG=false \
-    RUN_MIGRATIONS=true
+    RUN_MIGRATIONS=true \
+    RUN_DEMO_SEEDER=true
 
 COPY . .
 COPY --from=vendor /app/vendor ./vendor

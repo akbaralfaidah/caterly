@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\MerchantProfile;
 use App\Models\MerchantServiceArea;
 use App\Models\User;
+use Database\Seeders\DemoAccountsSeeder;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Illuminate\Support\Facades\Hash;
 use Tests\TestCase;
@@ -59,6 +60,19 @@ class DemoAccountsSeederTest extends TestCase
         $this->assertTrue(Hash::check(
             'CaterlyDemo123!',
             User::query()->where('email', 'faza@caterly.test')->value('password'),
+        ));
+    }
+
+    public function test_demo_seeder_bootstraps_an_empty_database_and_can_run_repeatedly(): void
+    {
+        $this->seed(DemoAccountsSeeder::class);
+        $this->seed(DemoAccountsSeeder::class);
+
+        $this->assertSame(15, User::query()->where('role', 'merchant')->count());
+        $this->assertSame(5, User::query()->where('role', 'customer')->count());
+        $this->assertTrue(Hash::check(
+            'CaterlyDemo123!',
+            User::query()->where('email', 'sinta@caterly.test')->value('password'),
         ));
     }
 }

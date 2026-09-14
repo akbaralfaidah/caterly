@@ -28,8 +28,8 @@ class DemoAccountsSeeder extends Seeder
      */
     public function run(): void
     {
-        $regions = Region::query()->get()->keyBy('code');
-        $categories = Category::query()->get()->keyBy('slug');
+        $regions = $this->seedRegions();
+        $categories = $this->seedCategories();
         $menuTemplates = $this->menuTemplates();
 
         foreach ($this->merchantDefinitions() as $merchantIndex => $definition) {
@@ -110,6 +110,52 @@ class DemoAccountsSeeder extends Seeder
         }
 
         $this->seedCustomers($regions);
+    }
+
+    private function seedRegions(): Collection
+    {
+        $definitions = [
+            ['code' => 'JAMBI', 'city_name' => 'Kota Jambi', 'province_name' => 'Jambi'],
+            ['code' => 'JAKPUS', 'city_name' => 'Jakarta Pusat', 'province_name' => 'DKI Jakarta'],
+            ['code' => 'JAKSEL', 'city_name' => 'Jakarta Selatan', 'province_name' => 'DKI Jakarta'],
+            ['code' => 'BDGKOTA', 'city_name' => 'Kota Bandung', 'province_name' => 'Jawa Barat'],
+            ['code' => 'SBYKT', 'city_name' => 'Kota Surabaya', 'province_name' => 'Jawa Timur'],
+        ];
+
+        foreach ($definitions as $definition) {
+            Region::query()->updateOrCreate(
+                ['code' => $definition['code']],
+                $definition,
+            );
+        }
+
+        return Region::query()
+            ->whereIn('code', array_column($definitions, 'code'))
+            ->get()
+            ->keyBy('code');
+    }
+
+    private function seedCategories(): Collection
+    {
+        $definitions = [
+            ['name' => 'Nasi Box', 'slug' => 'nasi-box'],
+            ['name' => 'Menu Nusantara', 'slug' => 'menu-nusantara'],
+            ['name' => 'Vegetarian', 'slug' => 'vegetarian'],
+            ['name' => 'Snack Box', 'slug' => 'snack-box'],
+            ['name' => 'Prasmanan', 'slug' => 'prasmanan'],
+        ];
+
+        foreach ($definitions as $definition) {
+            Category::query()->updateOrCreate(
+                ['slug' => $definition['slug']],
+                $definition,
+            );
+        }
+
+        return Category::query()
+            ->whereIn('slug', array_column($definitions, 'slug'))
+            ->get()
+            ->keyBy('slug');
     }
 
     private function merchantDefinitions(): array

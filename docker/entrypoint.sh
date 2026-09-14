@@ -33,6 +33,10 @@ if [ "${RUN_MIGRATIONS:-true}" = "true" ]; then
     done
 fi
 
+if [ "$RUN_DEMO_SEEDER" = "true" ]; then
+    php artisan db:seed --class=DemoAccountsSeeder --force
+fi
+
 php artisan optimize
 
 exec "$@"
